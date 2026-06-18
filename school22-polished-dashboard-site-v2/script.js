@@ -7,43 +7,10 @@ const FALLBACK = {
     {name:"Творчество и медиа", max_points:100, subcategories:[{name:"Конкурсы",max_points:40},{name:"Выступления",max_points:35},{name:"Медиа",max_points:25}]},
     {name:"Активность и волонтёрство", max_points:100, subcategories:[{name:"Помощь школе",max_points:35},{name:"Акции",max_points:35},{name:"Инициативы",max_points:30}]}
   ],
-  ratings: {
-    1: [
-      {class_id:1,class_name:"4А",students_count:24,average_students_score:78,class_bonus:8,total:86},
-      {class_id:2,class_name:"3Б",students_count:22,average_students_score:75,class_bonus:6,total:81},
-      {class_id:3,class_name:"2А",students_count:21,average_students_score:73,class_bonus:4,total:77},
-      {class_id:4,class_name:"1Б",students_count:20,average_students_score:70,class_bonus:3,total:73}
-    ],
-    2: [
-      {class_id:5,class_name:"5А",students_count:25,average_students_score:82,class_bonus:10,total:92},
-      {class_id:6,class_name:"7Б",students_count:23,average_students_score:80,class_bonus:7,total:87},
-      {class_id:7,class_name:"6А",students_count:24,average_students_score:77,class_bonus:6,total:83},
-      {class_id:8,class_name:"8Б",students_count:22,average_students_score:74,class_bonus:5,total:79}
-    ],
-    3: [
-      {class_id:9,class_name:"11А",students_count:20,average_students_score:81,class_bonus:8,total:89},
-      {class_id:10,class_name:"10Б",students_count:21,average_students_score:78,class_bonus:6,total:84},
-      {class_id:11,class_name:"9А",students_count:25,average_students_score:75,class_bonus:5,total:80},
-      {class_id:12,class_name:"11Б",students_count:18,average_students_score:72,class_bonus:4,total:76}
-    ]
-  }
+  ratings: {1: [], 2: [], 3: []}
 };
 
-
-const FALLBACK_STUDENTS = {
-  "4А": ["Иванов Артём","Смирнова София","Петров Михаил","Кузнецова Анна","Орлова Мария"],
-  "3Б": ["Фёдорова Алиса","Новиков Кирилл","Белова Дарья","Соколов Тимур"],
-  "2А": ["Громова Ева","Морозов Илья","Павлова Кира"],
-  "1Б": ["Зайцев Матвей","Егорова Полина","Крылов Лев"],
-  "5А": ["Иванов Михаил","Петрова Анна","Сидоров Максим","Андреева Ксения","Попов Матвей"],
-  "7Б": ["Орлов Илья","Белова Дарья","Лебедев Максим","Фёдорова Алиса"],
-  "6А": ["Кузнецова Мария","Васильева Ева","Новиков Кирилл","Павлов Никита"],
-  "8Б": ["Васильев Даниил","Захарова Виктория","Соколов Артём"],
-  "11А": ["Смирнова София","Соколов Артём","Морозова Полина"],
-  "10Б": ["Захарова Виктория","Павлов Никита","Андреева Ксения"],
-  "9А": ["Орлов Илья","Белова Дарья","Попов Матвей"],
-  "11Б": ["Морозова Полина","Васильев Даниил","Кузнецова Мария"]
-};
+const FALLBACK_STUDENTS = {};
 
 let state = {
   groupId: 2,
@@ -73,13 +40,31 @@ async function loadData(){
     const ratings = {};
     for(const id of [1,2,3]){
       const rows = await api(`/api/ratings/groups/${id}`);
-      ratings[id] = rows.length ? rows : FALLBACK.ratings[id];
+      ratings[id] = rows;
     }
     state.categories = categories.length ? categories : FALLBACK.categories;
     state.classes = classes;
+
+    for(const id of [1,2,3]){
+      if(!ratings[id] || ratings[id].length === 0){
+        ratings[id] = classes
+          .filter(cls => cls.group_id === id)
+          .map(cls => ({
+            class_id: cls.id,
+            class_name: cls.name,
+            grade: cls.grade,
+            group_id: cls.group_id,
+            students_count: 0,
+            average_students_score: 0,
+            class_bonus: 0,
+            total: 0
+          }));
+      }
+    }
+
     state.ratings = ratings;
   }catch(error){
-    console.warn("API недоступен или данных пока мало, использую демо.", error);
+    console.warn("API недоступен.", error);
     state.categories = FALLBACK.categories;
     state.classes = [];
     state.ratings = FALLBACK.ratings;
@@ -99,6 +84,9 @@ function groupName(){
 function rankClass(i){ return i===0 ? "gold" : i===1 ? "silver" : i===2 ? "bronze" : ""; }
 
 function directions(row){
+  if(!row || ((row.total || 0) === 0 && (row.students_count || 0) === 0 && (row.class_bonus || 0) === 0)){
+    return {study:0, sport:0, creative:0, active:0};
+  }
   const base = Math.round(row.total || 0);
   return {
     study: clamp(base + 4 - (row.class_id % 6)),
@@ -243,19 +231,14 @@ async function loadClassStudents(row){
       if(list && list.length) return list.map((student, index)=>({
         name: student.full_name,
         className: student.class_name || row.class_name,
-        score: Math.max(40, Math.min(100, Math.round((row.total || 70) - index * 3 + (index % 2) * 4)))
+        score: student.total_score || 0
       }));
     }
   }catch(error){
     console.warn("Не удалось загрузить учеников класса", error);
   }
 
-  const names = FALLBACK_STUDENTS[row.class_name] || ["Ученик 1","Ученик 2","Ученик 3"];
-  return names.map((name,index)=>({
-    name,
-    className: row.class_name,
-    score: Math.max(40, Math.min(100, Math.round((row.total || 70) - index * 4 + (index % 2) * 3)))
-  }));
+  return [];
 }
 
 function initials(name){
@@ -271,7 +254,7 @@ function renderStudents(students){
         <b>${student.name}</b>
         <span>${student.className} класс · место ${index+1}</span>
       </div>
-      <div class="student-score">${student.score}</div>
+      <div class="student-score">${student.score || 0}</div>
     </div>
   `).join("");
 }
@@ -280,8 +263,8 @@ async function openClass(index){
   const row = rows()[index];
   if(!row) return;
   const d = directions(row);
-  document.getElementById("studentsList").innerHTML = `<div class="student-item"><div class="student-avatar">…</div><div><b>Загрузка учеников</b><span>Получаем список из API</span></div><div class="student-score">—</div></div>`;
-  document.getElementById("studentsCountBadge").textContent = "…";
+  document.getElementById("studentsList").innerHTML = "";
+  document.getElementById("studentsCountBadge").textContent = "0";
 
   document.getElementById("modalTitle").textContent = `${row.class_name} класс`;
   document.getElementById("modalScore").textContent = Math.round(row.total || 0);
