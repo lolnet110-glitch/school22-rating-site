@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Школа №22 — рейтинг достижений</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app" id="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <img src="assets/school22-logo.jpg" alt="Логотип школы №22" class="school-logo" />
+        <div>
+          <h1>Школа №22</h1>
+          <p>г. Владимир</p>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-link active" data-page="overview"><span>⌂</span> Обзор</button>
+        <button class="nav-link" data-page="classes"><span>🏫</span> Рейтинг классов</button>
+        <button class="nav-link" data-page="categories"><span>▦</span> Категории</button>
+        <button class="nav-link" data-page="screen"><span>▶</span> Экранный режим</button>
+      </nav>
+
+      <div class="goal-card">
+        <div class="goal-icon">★</div>
+        <h3>Рейтинг достижений</h3>
+        <p>Система показывает активность классов по учёбе, спорту, творчеству и волонтёрству.</p>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="header">
+        <div>
+          <p class="label">Средняя школа №22 · г. Владимир</p>
+          <h2 id="pageTitle">Рейтинг достижений</h2>
+        </div>
+
+        <div class="header-actions">
+          <select id="groupSelect">
+            <option value="all">Все классы · 1–11</option>
+            <option value="1">Начальная школа · 1–4</option>
+            <option value="2" selected>Средняя школа · 5–8</option>
+            <option value="3">Старшая школа · 9–11</option>
+          </select>
+          <button id="refreshBtn">Обновить</button>
+          <button id="screenBtn">Экран</button>
+        </div>
+      </header>
+
+      <section class="page active" id="overview">
+        <div class="stats-grid">
+          <article class="stat-card accent">
+            <span>Лидер блока</span>
+            <strong id="leaderClass">—</strong>
+            <p>Класс с максимальным итоговым баллом</p>
+          </article>
+          <article class="stat-card">
+            <span>Активных классов</span>
+            <strong id="classesCount">0</strong>
+            <p>В выбранном возрастном блоке</p>
+          </article>
+          <article class="stat-card">
+            <span>Средний балл</span>
+            <strong id="avgScore">0</strong>
+            <p>По рейтингу классов</p>
+          </article>
+          <article class="stat-card logo-card">
+            <img src="assets/school22-logo.jpg" alt="Логотип школы №22" />
+            <div>
+              <span>Школа №22</span>
+              <p>Интерактивная панель</p>
+            </div>
+          </article>
+        </div>
+
+        <div class="dashboard-grid">
+          <section class="panel classes-panel">
+            <div class="panel-head">
+              <div>
+                <h3>Рейтинг классов</h3>
+                <p>Нажмите на класс, чтобы открыть подробную карточку</p>
+              </div>
+            </div>
+            <div id="classCards" class="class-list"></div>
+          </section>
+
+          <section class="panel chart-panel">
+            <div class="panel-head">
+              <div>
+                <h3>Сравнение классов</h3>
+                <p>Итоговый балл выбранного блока</p>
+              </div>
+            </div>
+            <div class="chart-wrap">
+              <canvas id="ratingChart"></canvas>
+            </div>
+          </section>
+
+          <section class="panel categories-panel">
+            <div class="panel-head">
+              <div>
+                <h3>Направления</h3>
+                <p>Основные категории рейтинга</p>
+              </div>
+            </div>
+            <div id="categoryMini" class="category-mini"></div>
+          </section>
+
+          <section class="panel top-panel">
+            <div class="panel-head">
+              <div>
+                <h3>Топ-3</h3>
+                <p>Лучшие классы блока</p>
+              </div>
+            </div>
+            <div id="topThree" class="top-three"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="page" id="classes">
+        <section class="panel full-panel">
+          <div class="panel-head">
+            <div>
+              <h3>Таблица рейтинга классов</h3>
+              <p>Сводный рейтинг и распределение по направлениям</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Место</th>
+                  <th>Класс</th>
+                  <th>Учёба</th>
+                  <th>Спорт</th>
+                  <th>Творчество</th>
+                  <th>Активность</th>
+                  <th>Итог</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="classesTable"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section class="page" id="categories">
+        <section class="panel full-panel">
+          <div class="panel-head">
+            <div>
+              <h3>Категории и подкатегории</h3>
+              <p>Структура рейтинга подгружается из API и может меняться администратором</p>
+            </div>
+          </div>
+          <div id="categoryFull" class="category-full"></div>
+        </section>
+      </section>
+
+      <section class="page" id="screen">
+        <section class="screen-preview">
+          <div class="screen-card">
+            <p class="label" id="previewLabel">Экранный режим</p>
+            <h3 id="previewTitle">Крупное отображение</h3>
+            <div id="previewContent" class="preview-content"></div>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div class="idle-overlay" id="idleOverlay">
+    <div class="idle-top">
+      <div class="idle-brand">
+        <img src="assets/school22-logo.jpg" alt="Логотип школы №22" />
+        <div>
+          <p class="label">Автоматический показ</p>
+          <h2>Школа №22</h2>
+        </div>
+      </div>
+      <button id="exitIdle">Вернуться</button>
+    </div>
+
+    <div class="idle-slide">
+      <p class="label" id="idleLabel">Рейтинг</p>
+      <h3 id="idleTitle">—</h3>
+      <div id="idleContent" class="idle-content"></div>
+    </div>
+
+    <div class="idle-progress">
+      <span id="idleProgress"></span>
+    </div>
+  </div>
+
+  <div class="modal" id="classModal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div>
+          <p class="label">Карточка класса</p>
+          <h3 id="modalTitle">—</h3>
+        </div>
+        <button id="closeModal">×</button>
+      </div>
+
+      <div class="modal-grid">
+        <article class="modal-score">
+          <span>Итоговый балл</span>
+          <strong id="modalScore">0</strong>
+        </article>
+        <article class="modal-details">
+          <p><b>Количество учеников:</b> <span id="modalStudents">0</span></p>
+          <p><b>Средний балл учеников:</b> <span id="modalAverage">0</span></p>
+          <p><b>Бонус класса:</b> <span id="modalBonus">0</span></p>
+        </article>
+      </div>
+
+      <div class="modal-bottom">
+        <div class="modal-chart-wrap">
+          <canvas id="modalChart"></canvas>
+        </div>
+        <div class="direction-list" id="modalDirections"></div>
+      </div>
+
+      <div class="students-block">
+        <div class="students-head">
+          <div>
+            <p class="label">Ученики класса</p>
+            <h4 id="studentsTitle">Список учеников</h4>
+          </div>
+          <span id="studentsCountBadge">0</span>
+        </div>
+        <div id="studentsList" class="students-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
