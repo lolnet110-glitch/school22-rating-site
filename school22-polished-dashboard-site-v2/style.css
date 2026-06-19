@@ -41,7 +41,7 @@ button,select{border:1px solid var(--line);background:#fff;color:var(--text);bor
 .stat-card.accent span,.stat-card.accent p{color:rgba(255,255,255,.78)}
 .stat-card strong{display:block;margin:9px 0;font-size:36px;line-height:1;letter-spacing:-.05em}
 .stat-card p{margin:0;color:var(--muted);font-size:13px;font-weight:700}
-.dashboard-grid{min-height:calc(100vh - 250px);display:grid;grid-template-columns:1.25fr .95fr .75fr;grid-template-rows:1fr .78fr;grid-template-areas:"classes chart uniform" "classes cats uniform";gap:14px}
+.dashboard-grid{display:grid;grid-template-columns:1.25fr .95fr .75fr;grid-template-rows:340px 260px;grid-template-areas:"classes chart uniform" "classes cats uniform";gap:14px}
 .panel{min-width:0;min-height:0;background:white;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;overflow:hidden}
 .classes-panel{grid-area:classes}.chart-panel{grid-area:chart}.uniform-panel{grid-area:uniform}.categories-panel{grid-area:cats}
 .full-panel{min-height:calc(100vh - 140px)}
@@ -59,7 +59,8 @@ button,select{border:1px solid var(--line);background:#fff;color:var(--text);bor
 .score{color:var(--purple);font-weight:900;font-size:24px;text-align:right}
 .bar{height:8px;border-radius:99px;background:#edeef6;overflow:hidden}
 .bar span{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--purple),var(--purple2))}
-.chart-wrap{position:relative;height:calc(100% - 58px);min-height:240px}
+.chart-panel{max-height:400px}
+.chart-wrap{position:relative;height:280px;min-height:280px;max-height:280px}
 .chart-wrap canvas,.modal-chart-wrap canvas{width:100%!important;height:100%!important;display:block}
 .category-mini,.category-full{display:grid;gap:10px}
 .category-pill{padding:12px;border-radius:15px;background:#fbfcff;border:1px solid var(--line)}
