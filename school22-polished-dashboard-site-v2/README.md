@@ -1,1 +1,1 @@
-School22 rating site v4.1
+School22 rating site v4.2 — scroll fix
