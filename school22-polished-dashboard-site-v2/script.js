@@ -10,7 +10,12 @@ let state = {
   modalChart: null,
   screenTimer: null,
   screenIndex: 0,
-  screenElapsed: 0
+  screenElapsed: 0,
+  idleEnabled: false,
+  idleTimeout: null,
+  idleTimer: null,
+  idleIndex: 0,
+  idleElapsed: 0
 };
 
 async function api(path){
@@ -321,6 +326,90 @@ function stopScreenMode(){
   state.screenTimer = null;
 }
 
+
+function idleSlides(){
+  const data = state.currentRows;
+  const uniformSorted = [...data].sort((a,b)=>round(uniformCategory(b)?.points)-round(uniformCategory(a)?.points));
+
+  return [
+    {
+      label: groupName(),
+      title: "Рейтинг классов",
+      html: data.slice(0,6).map((r,i)=>classRowHTML(r,i,true)).join("")
+    },
+    {
+      label: "Школьная форма",
+      title: "Лучшие показатели формы",
+      html: uniformSorted.slice(0,6).map((r,i)=>classRowHTML({...r,total:round(uniformCategory(r)?.points)},i,true)).join("")
+    },
+    {
+      label: "Лидер рейтинга",
+      title: data[0] ? `${data[0].class_name} класс` : "Пока нет данных",
+      html: data[0] ? classRowHTML(data[0],0,true) : ""
+    },
+    {
+      label: "Категории",
+      title: "Структура рейтинга",
+      html: state.categories.map(cat => `<div class="screen-category"><b>${cat.name}</b><span>${cat.max_points} баллов</span></div>`).join("")
+    }
+  ];
+}
+
+function renderIdleSlide(){
+  const slides = idleSlides();
+  const slide = slides[state.idleIndex % slides.length];
+
+  document.getElementById("idleLabel").textContent = slide.label;
+  document.getElementById("idleTitle").textContent = slide.title;
+  document.getElementById("idleContent").innerHTML = slide.html;
+}
+
+function startIdleMode(){
+  if(document.getElementById("classModal").classList.contains("active")) return;
+
+  state.idleEnabled = true;
+  state.idleIndex = 0;
+  state.idleElapsed = 0;
+  renderIdleSlide();
+
+  document.getElementById("idleOverlay").classList.add("active");
+
+  clearInterval(state.idleTimer);
+  state.idleTimer = setInterval(()=>{
+    state.idleElapsed += 0.1;
+    document.getElementById("idleProgress").style.width = `${Math.min(100,state.idleElapsed / 7 * 100)}%`;
+
+    if(state.idleElapsed >= 7){
+      state.idleElapsed = 0;
+      state.idleIndex++;
+      renderIdleSlide();
+    }
+  },100);
+}
+
+function stopIdleMode(){
+  state.idleEnabled = false;
+  document.getElementById("idleOverlay").classList.remove("active");
+  clearInterval(state.idleTimer);
+  state.idleTimer = null;
+  resetIdleTimer();
+}
+
+function resetIdleTimer(){
+  clearTimeout(state.idleTimeout);
+  if(state.idleEnabled) return;
+  state.idleTimeout = setTimeout(startIdleMode, 10000);
+}
+
+["mousemove","mousedown","keydown","touchstart","scroll"].forEach(eventName=>{
+  window.addEventListener(eventName,()=>{
+    if(state.idleEnabled) stopIdleMode();
+    else resetIdleTimer();
+  },{passive:true});
+}
+);
+
+
 document.querySelectorAll(".nav-link").forEach(btn => btn.addEventListener("click",()=>switchPage(btn.dataset.page)));
 
 document.getElementById("groupSelect").addEventListener("change", e => {
@@ -335,14 +424,21 @@ document.getElementById("refreshBtn").addEventListener("click", async()=>{
 
 document.getElementById("closeModal").addEventListener("click",()=>{
   document.getElementById("classModal").classList.remove("active");
+  resetIdleTimer();
 });
 
+document.getElementById("exitIdle").addEventListener("click", stopIdleMode);
+
 document.getElementById("classModal").addEventListener("click", e=>{
-  if(e.target.id === "classModal") document.getElementById("classModal").classList.remove("active");
+  if(e.target.id === "classModal") {
+    document.getElementById("classModal").classList.remove("active");
+    resetIdleTimer();
+  }
 });
 
 loadData().then(()=>{
   render();
+  resetIdleTimer();
   setInterval(async()=>{
     await loadData();
     render();
