@@ -29,10 +29,6 @@
         <button class="nav-link" data-page="screen">Экранный режим</button>
       </nav>
 
-      <div class="side-note">
-        <b>Без персональных данных</b>
-        <span>На сайте отображаются только классы, количество учеников и баллы.</span>
-      </div>
     </aside>
 
     <main class="main">
@@ -171,6 +167,23 @@
         </section>
       </section>
     </main>
+  </div>
+
+
+  <div class="idle-overlay" id="idleOverlay">
+    <div class="idle-top">
+      <div>
+        <p class="label">Автоматический показ</p>
+        <h2>Школа №22</h2>
+      </div>
+      <button id="exitIdle">Вернуться</button>
+    </div>
+    <div class="idle-slide">
+      <p class="label" id="idleLabel">Рейтинг</p>
+      <h3 id="idleTitle">—</h3>
+      <div id="idleContent" class="idle-content"></div>
+    </div>
+    <div class="idle-progress"><span id="idleProgress"></span></div>
   </div>
 
   <div class="modal" id="classModal">
