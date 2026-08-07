@@ -24,8 +24,8 @@
       <nav class="nav">
         <button class="nav-link active" data-page="overview">Обзор</button>
         <button class="nav-link" data-page="classes">Классы</button>
-        <button class="nav-link" data-page="uniform">Школьная форма</button>
-        <button class="nav-link" data-page="categories">Категории</button>
+        <button class="nav-link" data-page="directions">Номинации</button>
+        <button class="nav-link" data-page="categories">Матрица</button>
         <button class="nav-link" data-page="screen">Экранный режим</button>
       </nav>
     </aside>
@@ -86,7 +86,7 @@
             <div class="panel-head">
               <div>
                 <h3>Сравнение классов</h3>
-                <p>Итоговый балл с учётом школьной формы</p>
+                <p>Итоговая шкала 0–100 по матрице v0.2</p>
               </div>
             </div>
             <div class="chart-wrap"><canvas id="ratingChart"></canvas></div>
@@ -95,18 +95,18 @@
           <section class="panel uniform-panel">
             <div class="panel-head">
               <div>
-                <h3>Школьная форма</h3>
-                <p>Средний балл по проверкам</p>
+                <h3>Заполнение данных</h3>
+                <p>Сколько критериев уже подтверждено</p>
               </div>
             </div>
-            <div id="uniformMini" class="mini-list"></div>
+            <div id="progressMini" class="mini-list"></div>
           </section>
 
           <section class="panel categories-panel">
             <div class="panel-head">
               <div>
-                <h3>Категории лидера</h3>
-                <p>Распределение баллов</p>
+                <h3>Номинации лидера</h3>
+                <p>10 направлений по 100 баллов</p>
               </div>
             </div>
             <div id="leaderCategories" class="category-mini"></div>
@@ -119,7 +119,7 @@
           <div class="panel-head">
             <div>
               <h3>Таблица рейтинга</h3>
-              <p>Категории формируются из админки</p>
+              <p>Итог — среднее нормированных баллов десяти направлений</p>
             </div>
           </div>
           <div class="table-wrap">
@@ -131,15 +131,15 @@
         </section>
       </section>
 
-      <section class="page" id="uniform">
+      <section class="page" id="directions">
         <section class="panel full-panel">
           <div class="panel-head">
             <div>
-              <h3>Школьная форма</h3>
-              <p>Форма влияет на общий рейтинг класса</p>
+              <h3>Лидеры номинаций</h3>
+              <p>Лучший класс в каждом из десяти направлений</p>
             </div>
           </div>
-          <div id="uniformBoard" class="uniform-board"></div>
+          <div id="directionsBoard" class="uniform-board"></div>
         </section>
       </section>
 
@@ -147,8 +147,8 @@
         <section class="panel full-panel">
           <div class="panel-head">
             <div>
-              <h3>Категории и подкатегории</h3>
-              <p>Структура рейтинга подгружается из API</p>
+              <h3>Матрица «Классный рост» v0.2</h3>
+              <p>100 критериев, формулы и целевые значения</p>
             </div>
           </div>
           <div id="categoryFull" class="category-full"></div>
@@ -201,8 +201,8 @@
         </article>
         <article class="modal-details">
           <p><b>Учеников:</b> <span id="modalStudents">0</span></p>
-          <p><b>Проверок формы:</b> <span id="modalUniformChecks">0</span></p>
-          <p><b>Средний балл формы:</b> <span id="modalUniformAverage">0</span></p>
+          <p><b>Заполнено критериев:</b> <span id="modalCompleted">0</span></p>
+          <p><b>Прогресс данных:</b> <span id="modalProgress">0%</span></p>
         </article>
       </div>
 
@@ -214,11 +214,11 @@
       <div class="uniform-history-block">
         <div class="panel-head small">
           <div>
-            <h3>История проверок формы</h3>
-            <p>Даты, проценты и баллы</p>
+            <h3>Форма и сменная обувь</h3>
+            <p>Общие внезапные срезы по критериям 8.1 и 8.2</p>
           </div>
         </div>
-        <div id="modalUniformHistory" class="history-list"></div>
+        <div id="modalResponsibilityHistory" class="history-list"></div>
       </div>
     </div>
   </div>
