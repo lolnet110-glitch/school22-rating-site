@@ -113,8 +113,7 @@ function render() {
   renderChart(data);
   renderLeaderDirections(data[0]);
   renderTable(data);
-  renderProgress(data);
-  renderDirectionLeaders(data);
+  renderUniform(data);
   renderMatrix();
   renderScreenSlide();
 }
@@ -178,14 +177,29 @@ function renderTable(data) {
   }).join("");
 }
 
-function renderProgress(data) {
+function uniformPoints(row) {
+  return Number(row.uniform && row.uniform.points != null ? row.uniform.points : 0);
+}
+
+function renderUniform(data) {
   const sorted = data.slice().sort(function (a, b) {
-    return Number(b.progress_percent || 0) - Number(a.progress_percent || 0);
+    return uniformPoints(b) - uniformPoints(a);
   });
-  document.getElementById("progressMini").innerHTML = sorted.slice(0, 5).map(function (row, index) {
+  document.getElementById("uniformMini").innerHTML = sorted.slice(0, 5).map(function (row, index) {
     return '<button class="mini-row" onclick="openClass(' + row.class_id + ')">' +
       '<span>' + (index + 1) + '. ' + escapeHtml(row.class_name) + '</span>' +
-      '<b>' + round(row.progress_percent) + '%</b></button>';
+      '<b>' + round(uniformPoints(row)) + '</b></button>';
+  }).join("");
+
+  document.getElementById("uniformBoard").innerHTML = sorted.map(function (row) {
+    const summary = row.uniform || {};
+    const checked = Number(summary.checks_count || 0) > 0;
+    return '<article class="uniform-card ' + (checked ? "checked" : "unchecked") +
+      '" onclick="openClass(' + row.class_id + ')">' +
+      '<h4>' + escapeHtml(row.class_name) + ' класс</h4>' +
+      '<strong>' + round(uniformPoints(row)) + '</strong>' +
+      '<p>' + (checked ? "Проверок в учебном году: " + summary.checks_count : "Проверок пока нет") + '</p>' +
+      '<p>Осталось срезов: ' + Number(summary.checks_remaining == null ? 4 : summary.checks_remaining) + '</p></article>';
   }).join("");
 }
 
@@ -194,22 +208,6 @@ function directionScore(row, number) {
     return item.number === number;
   });
   return direction && direction.points != null ? Number(direction.points) : -1;
-}
-
-function renderDirectionLeaders(data) {
-  document.getElementById("directionsBoard").innerHTML = state.directions.map(function (direction) {
-    const sorted = data.slice().sort(function (a, b) {
-      return directionScore(b, direction.number) - directionScore(a, direction.number);
-    });
-    const leader = sorted[0];
-    const points = leader ? directionScore(leader, direction.number) : -1;
-    return '<article class="uniform-card checked"' +
-      (leader ? ' onclick="openClass(' + leader.class_id + ')"' : "") + '>' +
-      '<h4>' + escapeHtml(direction.name) + '</h4>' +
-      '<strong>' + (points < 0 ? "—" : round(points)) + '</strong>' +
-      '<p>' + (leader ? escapeHtml(leader.class_name) + ' класс' : "Нет данных") + '</p>' +
-      '<p>максимум 100 баллов</p></article>';
-  }).join("");
 }
 
 function renderMatrix() {
@@ -232,9 +230,8 @@ async function openClass(classId) {
   document.getElementById("modalTitle").textContent = row.class_name + " класс";
   document.getElementById("modalScore").textContent = round(row.total);
   document.getElementById("modalStudents").textContent = row.students_count || 0;
-  document.getElementById("modalCompleted").textContent =
-    row.completed_criteria + " из " + row.applicable_criteria;
-  document.getElementById("modalProgress").textContent = round(row.progress_percent) + "%";
+  document.getElementById("modalUniformChecks").textContent = row.uniform.checks_count || 0;
+  document.getElementById("modalUniformAverage").textContent = round(row.uniform.points);
 
   document.getElementById("modalCategories").innerHTML = directions.map(function (direction) {
     return '<section class="direction-item"><div class="direction-top"><span>' +
@@ -252,7 +249,7 @@ async function openClass(classId) {
   }).join("");
 
   const checks = row.responsibility_checks || details.responsibility_checks || [];
-  document.getElementById("modalResponsibilityHistory").innerHTML = checks.map(function (check) {
+  document.getElementById("modalUniformHistory").innerHTML = checks.map(function (check) {
     return '<article class="history-item"><div><h4>' + escapeHtml(check.check_date) +
       '</h4><p>Присутствовали: ' + check.present_count + ' · форма: ' +
       check.uniform_violations + ' наруш. · обувь: ' + check.shoes_violations +
