@@ -25,7 +25,7 @@
         <button class="nav-link active" data-page="overview">Обзор</button>
         <button class="nav-link" data-page="classes">Классы</button>
         <button class="nav-link" data-page="uniform">Школьная форма</button>
-        <button class="nav-link" data-page="categories">Матрица</button>
+        <button class="nav-link" data-page="categories">Категории</button>
         <button class="nav-link" data-page="screen">Экранный режим</button>
       </nav>
     </aside>
@@ -86,7 +86,7 @@
             <div class="panel-head">
               <div>
                 <h3>Сравнение классов</h3>
-                <p>Итоговый балл по матрице «Классный рост»</p>
+                <p>Итоговый балл с учётом школьной формы</p>
               </div>
             </div>
             <div class="chart-wrap"><canvas id="ratingChart"></canvas></div>
@@ -96,7 +96,7 @@
             <div class="panel-head">
               <div>
                 <h3>Школьная форма</h3>
-                <p>Отдельный показатель из направления «Ответственный класс»</p>
+                <p>Средний балл по проверкам</p>
               </div>
             </div>
             <div id="uniformMini" class="mini-list"></div>
@@ -147,8 +147,8 @@
         <section class="panel full-panel">
           <div class="panel-head">
             <div>
-              <h3>Матрица «Классный рост» v0.2</h3>
-              <p>10 направлений, 100 критериев, формулы и целевые значения</p>
+              <h3>Категории и подкатегории</h3>
+              <p>Структура рейтинга подгружается из API</p>
             </div>
           </div>
           <div id="categoryFull" class="category-full"></div>
@@ -215,7 +215,7 @@
         <div class="panel-head small">
           <div>
             <h3>История проверок формы</h3>
-            <p>Форма и сменная обувь фиксируются одним срезом</p>
+            <p>Даты, проценты и баллы</p>
           </div>
         </div>
         <div id="modalUniformHistory" class="history-list"></div>

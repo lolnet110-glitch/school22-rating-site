@@ -1,13 +1,9 @@
-const API_BASE = new URLSearchParams(window.location.search).get("api")
-  || "https://school22-rating-api.onrender.com";
-const SLIDE_SECONDS = 10;
-const IDLE_AFTER_MS = 60000;
+const API_BASE = "https://school22-rating-api.onrender.com";
 
-const state = {
+let state = {
   groupId: 2,
-  meta: null,
   classes: [],
-  directions: [],
+  categories: [],
   allRating: [],
   currentRows: [],
   ratingChart: null,
@@ -15,414 +11,458 @@ const state = {
   screenTimer: null,
   screenIndex: 0,
   screenElapsed: 0,
+  idleEnabled: false,
   idleTimeout: null,
   idleTimer: null,
   idleIndex: 0,
   idleElapsed: 0
 };
 
-function escapeHtml(value) {
-  return String(value == null ? "" : value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
-}
-
-async function api(path) {
+async function api(path){
   const response = await fetch(API_BASE + path);
-  if (!response.ok) throw new Error("Ошибка API: " + response.status);
+  if(!response.ok) throw new Error(path);
   return response.json();
 }
 
-function toast(message) {
-  const element = document.getElementById("toast");
-  element.textContent = message;
-  element.classList.add("show");
-  clearTimeout(toast.timer);
-  toast.timer = setTimeout(function () { element.classList.remove("show"); }, 2300);
+function toast(message){
+  const el = document.getElementById("toast");
+  el.textContent = message;
+  el.classList.add("show");
+  setTimeout(()=>el.classList.remove("show"), 2300);
 }
 
-function round(value) {
-  return Math.round(Number(value || 0) * 10) / 10;
-}
-
-async function loadData() {
-  const data = await Promise.all([
-    api("/api/meta"),
+async function loadData(){
+  const [classes, categories, rating] = await Promise.all([
     api("/api/classes"),
-    api("/api/directions"),
+    api("/api/categories"),
     api("/api/ratings/classes")
   ]);
-  state.meta = data[0];
-  state.classes = data[1];
-  state.directions = data[2];
-  state.allRating = data[3];
+
+  state.classes = classes;
+  state.categories = categories;
+  state.allRating = rating;
 }
 
-function rows() {
-  if (state.groupId === "all") return state.allRating;
-  return state.allRating.filter(function (row) {
-    return row.group_id === state.groupId;
-  });
+function rows(){
+  if(state.groupId === "all") return state.allRating;
+  return state.allRating.filter(row => row.group_id === state.groupId);
 }
 
-function groupName() {
-  if (state.groupId === "all") return "Все классы";
-  if (state.groupId === 1) return "Начальная школа";
-  if (state.groupId === 2) return "Средняя школа";
+function groupName(){
+  if(state.groupId === "all") return "Все классы";
+  if(state.groupId === 1) return "Начальная школа";
+  if(state.groupId === 2) return "Средняя школа";
   return "Старшая школа";
 }
 
-function rankClass(index) {
-  if (index === 0) return "first";
-  if (index === 1) return "second";
-  if (index === 2) return "third";
+function rankClass(index){
+  if(index === 0) return "first";
+  if(index === 1) return "second";
+  if(index === 2) return "third";
   return "";
 }
 
-function classRowHTML(row, index, compact) {
-  const total = round(row.total);
-  return '<article class="class-row" onclick="openClass(' + row.class_id + ')">' +
-    '<div class="rank ' + rankClass(index) + '">' + (index + 1) + '</div>' +
-    '<div><h4>' + escapeHtml(row.class_name) + ' класс</h4>' +
-    '<p>' + Number(row.students_count || 0) + ' учеников · заполнено ' +
-    round(row.progress_percent) + '%</p></div>' +
-    (compact ? "" : '<div class="bar"><span style="width:' + Math.min(100, total) + '%"></span></div>') +
-    '<div class="score">' + total + '</div></article>';
+function round(value){
+  return Math.round((Number(value || 0)) * 10) / 10;
 }
 
-function render() {
+function uniformCategory(row){
+  return (row.categories || []).find(cat => cat.name.toLowerCase().includes("форма"));
+}
+
+function classRowHTML(row, index, compact = false){
+  const total = round(row.total);
+  const uniform = uniformCategory(row);
+  return `
+    <article class="class-row" onclick="openClass(${row.class_id})">
+      <div class="rank ${rankClass(index)}">${index + 1}</div>
+      <div>
+        <h4>${row.class_name} класс</h4>
+        <p>${row.students_count || 0} учеников · форма: ${round(uniform?.points)} б.</p>
+      </div>
+      ${compact ? "" : `<div class="bar"><span style="width:${Math.min(100,total)}%"></span></div>`}
+      <div class="score">${total}</div>
+    </article>
+  `;
+}
+
+function render(){
   state.currentRows = rows();
   const data = state.currentRows;
-  const average = data.length
-    ? round(data.reduce(function (sum, row) { return sum + Number(row.total || 0); }, 0) / data.length)
-    : 0;
-  const students = data.reduce(function (sum, row) {
-    return sum + Number(row.students_count || 0);
-  }, 0);
+  const avg = data.length ? round(data.reduce((s,r)=>s + Number(r.total || 0),0) / data.length) : 0;
+  const students = data.reduce((s,r)=>s + Number(r.students_count || 0),0);
 
   document.getElementById("pageTitle").textContent = groupName();
-  document.getElementById("leaderClass").textContent = data[0] ? data[0].class_name : "—";
+  document.getElementById("leaderClass").textContent = data[0]?.class_name || "—";
   document.getElementById("classesCount").textContent = data.length;
-  document.getElementById("avgScore").textContent = average;
+  document.getElementById("avgScore").textContent = avg;
   document.getElementById("studentsTotal").textContent = students;
-  document.getElementById("classCards").innerHTML = data.map(function (row, index) {
-    return classRowHTML(row, index, false);
-  }).join("");
 
+  document.getElementById("classCards").innerHTML = data.map((row,index)=>classRowHTML(row,index)).join("");
   renderChart(data);
-  renderLeaderDirections(data[0]);
+  renderLeaderCategories(data[0]);
   renderTable(data);
   renderUniform(data);
-  renderMatrix();
-  renderScreenSlide();
+  renderCategories();
+  renderScreen();
 }
 
-function renderChart(data) {
+function renderChart(data){
   const canvas = document.getElementById("ratingChart");
-  if (state.ratingChart) state.ratingChart.destroy();
+  if(!canvas) return;
+  if(state.ratingChart) state.ratingChart.destroy();
+
   state.ratingChart = new Chart(canvas, {
     type: "bar",
     data: {
-      labels: data.map(function (row) { return row.class_name; }),
+      labels: data.map(row => row.class_name),
       datasets: [{
-        data: data.map(function (row) { return round(row.total); }),
+        data: data.map(row => round(row.total)),
         borderRadius: 12,
         maxBarThickness: 44,
-        backgroundColor: "rgba(55,102,205,.84)"
+        backgroundColor: "rgba(91,53,245,.82)"
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: {legend: {display: false}},
+      plugins: { legend: { display:false } },
       scales: {
-        x: {grid: {display: false}, ticks: {font: {weight: "800"}}},
-        y: {beginAtZero: true, max: 100, grid: {color: "rgba(17,24,47,.08)"}}
+        x: { grid: { display:false }, ticks: { font: { weight:"800" } } },
+        y: { beginAtZero:true, grid:{ color:"rgba(17,24,47,.08)" }, ticks:{ font:{ weight:"700" } } }
       }
     }
   });
 }
 
-function renderLeaderDirections(row) {
+function renderLeaderCategories(row){
   const box = document.getElementById("leaderCategories");
-  if (!row) {
+  if(!row){
     box.innerHTML = "";
     return;
   }
-  box.innerHTML = (row.directions || []).map(function (direction) {
-    return '<div class="category-pill"><b>' + escapeHtml(direction.name) +
-      '<span>' + (direction.points == null ? "N/A" : round(direction.points)) +
-      '</span></b><small>' + direction.completed_criteria +
-      ' из ' + direction.applicable_criteria + ' критериев</small></div>';
+
+  box.innerHTML = (row.categories || []).map(cat => `
+    <div class="category-pill">
+      <b>${cat.name}<span>${round(cat.points)}</span></b>
+      <small>до ${cat.max_points} баллов</small>
+    </div>
+  `).join("");
+}
+
+function categoryNames(data){
+  const first = data.find(row => row.categories && row.categories.length);
+  return first ? first.categories.map(cat => cat.name) : state.categories.map(cat => cat.name);
+}
+
+function renderTable(data){
+  const names = categoryNames(data);
+
+  document.getElementById("classesTableHead").innerHTML = `
+    <tr>
+      <th>Место</th>
+      <th>Класс</th>
+      <th>Ученики</th>
+      ${names.map(name => `<th>${name}</th>`).join("")}
+      <th>Итог</th>
+    </tr>
+  `;
+
+  document.getElementById("classesTable").innerHTML = data.map((row,index)=>`
+    <tr onclick="openClass(${row.class_id})">
+      <td><div class="rank ${rankClass(index)}">${index + 1}</div></td>
+      <td>${row.class_name} класс</td>
+      <td>${row.students_count || 0}</td>
+      ${(row.categories || []).map(cat => `<td>${round(cat.points)}</td>`).join("")}
+      <td class="score">${round(row.total)}</td>
+    </tr>
+  `).join("");
+}
+
+function renderUniform(data){
+  const sorted = [...data].sort((a,b)=>round(uniformCategory(b)?.points)-round(uniformCategory(a)?.points));
+
+  document.getElementById("uniformMini").innerHTML = sorted.slice(0,5).map((row,index)=>{
+    const u = uniformCategory(row);
+    return `
+      <button class="mini-row" onclick="openClass(${row.class_id})">
+        <span>${index + 1}. ${row.class_name}</span>
+        <b>${round(u?.points)}</b>
+      </button>
+    `;
+  }).join("");
+
+  document.getElementById("uniformBoard").innerHTML = sorted.map(row=>{
+    const u = uniformCategory(row);
+    const checks = u?.uniform_summary?.checks_count || 0;
+    const checked = u?.uniform_summary?.is_checked_current_month;
+    return `
+      <article class="uniform-card ${checked ? "checked" : "unchecked"}" onclick="openClass(${row.class_id})">
+        <h4>${row.class_name} класс</h4>
+        <strong>${round(u?.points)}</strong>
+        <p>${checked ? "Проверено в текущем месяце" : "Не проверено в текущем месяце"}</p>
+        <p>${checks} проверок · ${row.students_count || 0} учеников</p>
+      </article>
+    `;
   }).join("");
 }
 
-function renderTable(data) {
-  document.getElementById("classesTableHead").innerHTML =
-    '<tr><th>Место</th><th>Класс</th><th>Ученики</th>' +
-    state.directions.map(function (direction) {
-      return '<th>' + escapeHtml(direction.name.replace("Самый ", "")) + '</th>';
-    }).join("") + '<th>Итог</th></tr>';
-
-  document.getElementById("classesTable").innerHTML = data.map(function (row, index) {
-    return '<tr onclick="openClass(' + row.class_id + ')">' +
-      '<td><div class="rank ' + rankClass(index) + '">' + (index + 1) + '</div></td>' +
-      '<td>' + escapeHtml(row.class_name) + ' класс</td>' +
-      '<td>' + Number(row.students_count || 0) + '</td>' +
-      (row.directions || []).map(function (direction) {
-        return '<td>' + (direction.points == null ? "N/A" : round(direction.points)) + '</td>';
-      }).join("") +
-      '<td class="score">' + round(row.total) + '</td></tr>';
-  }).join("");
+function renderCategories(){
+  document.getElementById("categoryFull").innerHTML = state.categories.map(cat => `
+    <article class="category-card">
+      <h4>${cat.name}</h4>
+      <strong>${cat.max_points}</strong>
+      <p>Максимум баллов</p>
+      <div class="sub-list">
+        ${(cat.subcategories || []).map(sub => `
+          <div class="sub-item">
+            <span>${sub.name}</span>
+            <b>${sub.max_points}</b>
+          </div>
+        `).join("") || `<div class="sub-item muted">Без подкатегорий</div>`}
+      </div>
+    </article>
+  `).join("");
 }
 
-function uniformPoints(row) {
-  return Number(row.uniform && row.uniform.points != null ? row.uniform.points : 0);
-}
-
-function renderUniform(data) {
-  const sorted = data.slice().sort(function (a, b) {
-    return uniformPoints(b) - uniformPoints(a);
-  });
-  document.getElementById("uniformMini").innerHTML = sorted.slice(0, 5).map(function (row, index) {
-    return '<button class="mini-row" onclick="openClass(' + row.class_id + ')">' +
-      '<span>' + (index + 1) + '. ' + escapeHtml(row.class_name) + '</span>' +
-      '<b>' + round(uniformPoints(row)) + '</b></button>';
-  }).join("");
-
-  document.getElementById("uniformBoard").innerHTML = sorted.map(function (row) {
-    const summary = row.uniform || {};
-    const checked = Number(summary.checks_count || 0) > 0;
-    return '<article class="uniform-card ' + (checked ? "checked" : "unchecked") +
-      '" onclick="openClass(' + row.class_id + ')">' +
-      '<h4>' + escapeHtml(row.class_name) + ' класс</h4>' +
-      '<strong>' + round(uniformPoints(row)) + '</strong>' +
-      '<p>' + (checked ? "Проверок в учебном году: " + summary.checks_count : "Проверок пока нет") + '</p>' +
-      '<p>Осталось срезов: ' + Number(summary.checks_remaining == null ? 4 : summary.checks_remaining) + '</p></article>';
-  }).join("");
-}
-
-function directionScore(row, number) {
-  const direction = (row.directions || []).find(function (item) {
-    return item.number === number;
-  });
-  return direction && direction.points != null ? Number(direction.points) : -1;
-}
-
-function renderMatrix() {
-  document.getElementById("categoryFull").innerHTML = state.directions.map(function (direction) {
-    return '<article class="category-card"><h4>' + escapeHtml(direction.name) +
-      '</h4><strong>100</strong><p>10 критериев</p><div class="sub-list">' +
-      direction.criteria.map(function (criterion) {
-        return '<div class="sub-item"><span>' + escapeHtml(criterion.code + " · " + criterion.name) +
-          '<small>' + escapeHtml(criterion.formula_code + " · цель " +
-          criterion.target + " " + criterion.unit) + '</small></span><b>10</b></div>';
-      }).join("") + '</div></article>';
-  }).join("");
-}
-
-async function openClass(classId) {
+async function openClass(classId){
   stopIdleMode(false);
-  const details = await api("/api/classes/" + classId + "/details");
+  const details = await api(`/api/classes/${classId}/details`);
   const row = details.class;
-  const directions = row.directions || [];
-  document.getElementById("modalTitle").textContent = row.class_name + " класс";
+  const uniform = details.uniform || {checks:[], checks_count:0, average_points:0};
+
+  document.getElementById("modalTitle").textContent = `${row.class_name} класс`;
   document.getElementById("modalScore").textContent = round(row.total);
   document.getElementById("modalStudents").textContent = row.students_count || 0;
-  document.getElementById("modalUniformChecks").textContent = row.uniform.checks_count || 0;
-  document.getElementById("modalUniformAverage").textContent = round(row.uniform.points);
+  document.getElementById("modalUniformChecks").textContent = uniform.checks_count || 0;
+  document.getElementById("modalUniformAverage").textContent = round(uniform.average_points);
 
-  document.getElementById("modalCategories").innerHTML = directions.map(function (direction) {
-    return '<section class="direction-item"><div class="direction-top"><span>' +
-      escapeHtml(direction.name) + '</span><b>' +
-      (direction.points == null ? "N/A" : round(direction.points)) + '</b></div>' +
-      '<div class="bar"><span style="width:' +
-      (direction.points == null ? 0 : Math.min(100, Number(direction.points))) +
-      '%"></span></div><div class="subcategory-list">' +
-      (direction.criteria || []).map(function (criterion) {
-        return '<div class="subcategory-row"><span>' +
-          escapeHtml(criterion.code + " · " + criterion.name) + '</span><b>' +
-          (criterion.points == null ? "N/A" : round(criterion.points) + " / 10") +
-          '</b></div>';
-      }).join("") + '</div></section>';
-  }).join("");
+  const categories = row.categories || [];
 
-  const checks = row.responsibility_checks || details.responsibility_checks || [];
-  document.getElementById("modalUniformHistory").innerHTML = checks.map(function (check) {
-    return '<article class="history-item"><div><h4>' + escapeHtml(check.check_date) +
-      '</h4><p>Присутствовали: ' + check.present_count + ' · форма: ' +
-      check.uniform_violations + ' наруш. · обувь: ' + check.shoes_violations +
-      ' наруш.</p></div></article>';
-  }).join("") || '<p class="empty">Срезов пока нет</p>';
+  document.getElementById("modalCategories").innerHTML = categories.map(cat => `
+    <section class="direction-item">
+      <div class="direction-top">
+        <span>${cat.name}</span>
+        <b>${round(cat.points)}</b>
+      </div>
+      <div class="bar"><span style="width:${Math.min(100,(Number(cat.points||0)/Number(cat.max_points||100))*100)}%"></span></div>
+      <div class="subcategory-list">
+        ${(cat.subcategories || []).map(sub => `
+          <div class="subcategory-row">
+            <span>${sub.name}</span>
+            <b>${round(sub.points)} / ${sub.max_points}</b>
+          </div>
+          ${(sub.events || []).map(event => `
+            <div class="event-row">
+              <span>${event.event_date} · ${event.title}</span>
+              <b>+${round(event.points)}</b>
+            </div>
+          `).join("")}
+        `).join("")}
+      </div>
+    </section>
+  `).join("");
+
+  document.getElementById("modalUniformHistory").innerHTML = (uniform.checks || []).map(check => `
+    <article class="history-item">
+      <div>
+        <h4>${check.check_date}</h4>
+        <p>Без формы: ${check.without_uniform} · В форме: ${check.in_uniform} · ${check.percent_in_uniform}%</p>
+      </div>
+      <strong>${check.points}</strong>
+    </article>
+  `).join("") || `<p class="empty">Проверок формы пока нет</p>`;
 
   const canvas = document.getElementById("modalChart");
-  if (state.modalChart) state.modalChart.destroy();
+  if(state.modalChart) state.modalChart.destroy();
+
   state.modalChart = new Chart(canvas, {
     type: "radar",
     data: {
-      labels: directions.map(function (direction) {
-        return direction.name.replace("Самый ", "");
-      }),
+      labels: categories.map(cat => cat.name),
       datasets: [{
-        data: directions.map(function (direction) { return round(direction.points); }),
-        borderColor: "rgba(55,102,205,.95)",
-        backgroundColor: "rgba(55,102,205,.14)",
-        pointBackgroundColor: "rgba(55,102,205,.95)"
+        data: categories.map(cat => round(cat.points)),
+        borderColor: "rgba(91,53,245,.9)",
+        backgroundColor: "rgba(91,53,245,.14)",
+        pointBackgroundColor: "rgba(91,53,245,.95)"
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: {legend: {display: false}},
-      scales: {r: {beginAtZero: true, max: 100}}
+      plugins: { legend: { display:false } },
+      scales: { r: { min:0 } }
     }
   });
-  document.getElementById("classModal").classList.add("open");
+
+  document.getElementById("classModal").classList.add("active");
 }
 
-function switchPage(page) {
-  document.querySelectorAll(".page").forEach(function (element) {
-    element.classList.toggle("active", element.id === page);
-  });
-  document.querySelectorAll(".nav-link").forEach(function (button) {
-    button.classList.toggle("active", button.dataset.page === page);
-  });
-  if (page === "screen") startScreenMode();
+function switchPage(page){
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.getElementById(page).classList.add("active");
+  document.querySelectorAll(".nav-link").forEach(btn => btn.classList.toggle("active", btn.dataset.page === page));
+
+  if(page === "screen") startScreenMode();
   else stopScreenMode();
+
+  resetIdleTimer();
 }
 
-function screenSlides() {
+function renderScreen(){
   const data = state.currentRows;
-  const slides = [{
-    label: "Общий рейтинг",
-    title: groupName(),
-    html: data.slice(0, 6).map(function (row, index) {
-      return classRowHTML(row, index, true);
-    }).join("")
-  }];
-  state.directions.forEach(function (direction) {
-    const sorted = data.slice().sort(function (a, b) {
-      return directionScore(b, direction.number) - directionScore(a, direction.number);
-    });
-    slides.push({
-      label: "Номинация",
-      title: direction.name,
-      html: sorted.slice(0, 6).map(function (row, index) {
-        const copy = Object.assign({}, row, {total: Math.max(0, directionScore(row, direction.number))});
-        return classRowHTML(copy, index, true);
-      }).join("")
-    });
-  });
-  return slides;
+  const slides = [
+    {label: groupName(), title: "Рейтинг классов", html: data.slice(0,6).map((r,i)=>classRowHTML(r,i,true)).join("")},
+    {label: "Школьная форма", title: "Средний балл формы", html: [...data].sort((a,b)=>round(uniformCategory(b)?.points)-round(uniformCategory(a)?.points)).slice(0,6).map((r,i)=>classRowHTML({...r,total:round(uniformCategory(r)?.points)},i,true)).join("")},
+    {label: "Категории", title: "Структура рейтинга", html: state.categories.map(cat => `<div class="screen-category"><b>${cat.name}</b><span>${cat.max_points} баллов</span></div>`).join("")}
+  ];
+
+  const slide = slides[state.screenIndex % slides.length];
+  document.getElementById("screenLabel").textContent = slide.label;
+  document.getElementById("screenTitle").textContent = slide.title;
+  document.getElementById("screenContent").innerHTML = slide.html;
 }
 
-function drawSlide(labelId, titleId, contentId, progressId, index, elapsed) {
-  const slides = screenSlides();
-  if (!slides.length) return;
-  const slide = slides[index % slides.length];
-  document.getElementById(labelId).textContent = slide.label;
-  document.getElementById(titleId).textContent = slide.title;
-  document.getElementById(contentId).innerHTML = slide.html;
-  document.getElementById(progressId).style.width = (elapsed / SLIDE_SECONDS * 100) + "%";
-}
-
-function renderScreenSlide() {
-  drawSlide("screenLabel", "screenTitle", "screenContent", "screenProgress", state.screenIndex, state.screenElapsed);
-}
-
-function startScreenMode() {
+function startScreenMode(){
   stopScreenMode();
-  state.screenIndex = 0;
   state.screenElapsed = 0;
-  renderScreenSlide();
-  state.screenTimer = setInterval(function () {
-    state.screenElapsed += 1;
-    if (state.screenElapsed >= SLIDE_SECONDS) {
+  renderScreen();
+
+  state.screenTimer = setInterval(()=>{
+    state.screenElapsed += 0.1;
+    document.getElementById("screenProgress").style.width = `${Math.min(100,state.screenElapsed / 7 * 100)}%`;
+
+    if(state.screenElapsed >= 7){
       state.screenElapsed = 0;
-      state.screenIndex += 1;
+      state.screenIndex++;
+      renderScreen();
     }
-    renderScreenSlide();
-  }, 1000);
+  },100);
 }
 
-function stopScreenMode() {
-  clearInterval(state.screenTimer);
+function stopScreenMode(){
+  if(state.screenTimer) clearInterval(state.screenTimer);
   state.screenTimer = null;
 }
 
-function renderIdleSlide() {
-  drawSlide("idleLabel", "idleTitle", "idleContent", "idleProgress", state.idleIndex, state.idleElapsed);
+function idleSlides(){
+  const data = state.currentRows;
+  const uniformSorted = [...data].sort((a,b)=>round(uniformCategory(b)?.points)-round(uniformCategory(a)?.points));
+
+  return [
+    {
+      label: groupName(),
+      title: "Рейтинг классов",
+      html: data.slice(0,6).map((r,i)=>classRowHTML(r,i,true)).join("")
+    },
+    {
+      label: "Школьная форма",
+      title: "Лучшие показатели формы",
+      html: uniformSorted.slice(0,6).map((r,i)=>classRowHTML({...r,total:round(uniformCategory(r)?.points)},i,true)).join("")
+    },
+    {
+      label: "Лидер рейтинга",
+      title: data[0] ? `${data[0].class_name} класс` : "Пока нет данных",
+      html: data[0] ? classRowHTML(data[0],0,true) : ""
+    },
+    {
+      label: "Категории",
+      title: "Структура рейтинга",
+      html: state.categories.map(cat => `<div class="screen-category"><b>${cat.name}</b><span>${cat.max_points} баллов</span></div>`).join("")
+    }
+  ];
 }
 
-function startIdleMode() {
-  if (document.getElementById("classModal").classList.contains("open")) return;
-  document.getElementById("idleOverlay").classList.add("open");
+function renderIdleSlide(){
+  const slides = idleSlides();
+  const slide = slides[state.idleIndex % slides.length];
+
+  document.getElementById("idleLabel").textContent = slide.label;
+  document.getElementById("idleTitle").textContent = slide.title;
+  document.getElementById("idleContent").innerHTML = slide.html;
+}
+
+function startIdleMode(){
+  if(document.getElementById("classModal").classList.contains("active")) return;
+
+  state.idleEnabled = true;
   state.idleIndex = 0;
   state.idleElapsed = 0;
   renderIdleSlide();
+
+  document.getElementById("idleOverlay").classList.add("active");
+
   clearInterval(state.idleTimer);
-  state.idleTimer = setInterval(function () {
-    state.idleElapsed += 1;
-    if (state.idleElapsed >= SLIDE_SECONDS) {
+  state.idleTimer = setInterval(()=>{
+    state.idleElapsed += 0.1;
+    document.getElementById("idleProgress").style.width = `${Math.min(100,state.idleElapsed / 7 * 100)}%`;
+
+    if(state.idleElapsed >= 7){
       state.idleElapsed = 0;
-      state.idleIndex += 1;
+      state.idleIndex++;
+      renderIdleSlide();
     }
-    renderIdleSlide();
-  }, 1000);
+  },100);
 }
 
-function stopIdleMode(reset) {
-  document.getElementById("idleOverlay").classList.remove("open");
+function stopIdleMode(reset = true){
+  state.idleEnabled = false;
+  document.getElementById("idleOverlay").classList.remove("active");
   clearInterval(state.idleTimer);
   state.idleTimer = null;
-  if (reset !== false) resetIdleTimer();
+  if(reset) resetIdleTimer();
 }
 
-function resetIdleTimer() {
+function resetIdleTimer(){
   clearTimeout(state.idleTimeout);
-  if (!document.getElementById("idleOverlay").classList.contains("open")) {
-    state.idleTimeout = setTimeout(startIdleMode, IDLE_AFTER_MS);
-  }
+  if(state.idleEnabled) return;
+  state.idleTimeout = setTimeout(startIdleMode, 10000);
 }
 
-window.openClass = openClass;
+["mousemove","mousedown","keydown","touchstart","scroll"].forEach(eventName=>{
+  window.addEventListener(eventName,()=>{
+    if(state.idleEnabled) stopIdleMode();
+    else resetIdleTimer();
+  },{passive:true});
+});
 
-document.querySelectorAll(".nav-link").forEach(function (button) {
-  button.addEventListener("click", function () { switchPage(button.dataset.page); });
-});
-document.getElementById("groupSelect").addEventListener("change", function (event) {
-  state.groupId = event.target.value === "all" ? "all" : Number(event.target.value);
+document.querySelectorAll(".nav-link").forEach(btn => btn.addEventListener("click",()=>switchPage(btn.dataset.page)));
+
+document.getElementById("groupSelect").addEventListener("change", e => {
+  state.groupId = e.target.value === "all" ? "all" : Number(e.target.value);
   render();
-});
-document.getElementById("refreshBtn").addEventListener("click", async function () {
-  try {
-    await loadData();
-    render();
-    toast("Данные обновлены");
-  } catch (error) {
-    toast(error.message);
-  }
-});
-document.getElementById("closeModal").addEventListener("click", function () {
-  document.getElementById("classModal").classList.remove("open");
   resetIdleTimer();
 });
-document.getElementById("classModal").addEventListener("click", function (event) {
-  if (event.target.id === "classModal") {
-    document.getElementById("classModal").classList.remove("open");
+
+document.getElementById("refreshBtn").addEventListener("click", async()=>{
+  await loadData();
+  render();
+  toast("Обновлено");
+  resetIdleTimer();
+});
+
+document.getElementById("exitIdle").addEventListener("click",()=>stopIdleMode());
+
+document.getElementById("closeModal").addEventListener("click",()=>{
+  document.getElementById("classModal").classList.remove("active");
+  resetIdleTimer();
+});
+
+document.getElementById("classModal").addEventListener("click", e=>{
+  if(e.target.id === "classModal") {
+    document.getElementById("classModal").classList.remove("active");
     resetIdleTimer();
   }
 });
-document.getElementById("exitIdle").addEventListener("click", function () { stopIdleMode(true); });
-["mousemove", "mousedown", "keydown", "touchstart", "scroll"].forEach(function (eventName) {
-  document.addEventListener(eventName, resetIdleTimer, {passive: true});
-});
 
-loadData().then(function () {
+loadData().then(()=>{
   render();
   resetIdleTimer();
-}).catch(function (error) {
+  setInterval(async()=>{
+    await loadData();
+    render();
+  },30000);
+}).catch(error=>{
   console.error(error);
-  toast("Не удалось загрузить рейтинг");
+  toast("Ошибка загрузки данных");
 });
