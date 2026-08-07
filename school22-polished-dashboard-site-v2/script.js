@@ -67,7 +67,7 @@ function round(value){
 }
 
 function uniformCategory(row){
-  return (row.categories || []).find(cat => cat.name.toLowerCase().includes("форма"));
+  return (row.categories || []).find(cat => cat.uniform_summary);
 }
 
 function classRowHTML(row, index, compact = false){
@@ -210,13 +210,18 @@ function renderUniform(data){
 function renderCategories(){
   document.getElementById("categoryFull").innerHTML = state.categories.map(cat => `
     <article class="category-card">
-      <h4>${cat.name}</h4>
+      <h4>${cat.matrix_number ? `${cat.matrix_number}. ` : ""}${cat.name}</h4>
       <strong>${cat.max_points}</strong>
-      <p>Максимум баллов</p>
+      <p>Максимум баллов · ${(cat.subcategories || []).length} критериев</p>
       <div class="sub-list">
         ${(cat.subcategories || []).map(sub => `
           <div class="sub-item">
-            <span>${sub.name}</span>
+            <div>
+              <span>${sub.code ? `${sub.code} · ` : ""}${sub.name}</span>
+              <small>${sub.measurement || ""}</small>
+              <em>${sub.formula_code || "Ручные баллы"}${sub.target != null ? ` · цель ${sub.target} ${sub.unit || ""}` : ""}</em>
+              ${sub.scoring_rule ? `<small class="scoring-rule">${sub.scoring_rule}</small>` : ""}
+            </div>
             <b>${sub.max_points}</b>
           </div>
         `).join("") || `<div class="sub-item muted">Без подкатегорий</div>`}
@@ -249,7 +254,7 @@ async function openClass(classId){
       <div class="subcategory-list">
         ${(cat.subcategories || []).map(sub => `
           <div class="subcategory-row">
-            <span>${sub.name}</span>
+            <span>${sub.code ? `${sub.code} · ` : ""}${sub.name}${sub.formula_code ? ` · ${sub.formula_code}` : ""}</span>
             <b>${round(sub.points)} / ${sub.max_points}</b>
           </div>
           ${(sub.events || []).map(event => `
