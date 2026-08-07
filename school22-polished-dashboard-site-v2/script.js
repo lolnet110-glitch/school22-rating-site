@@ -5,6 +5,7 @@ let state = {
   classes: [],
   categories: [],
   allRating: [],
+  uniformByClass: {},
   currentRows: [],
   ratingChart: null,
   modalChart: null,
@@ -31,7 +32,7 @@ function toast(message){
   setTimeout(()=>el.classList.remove("show"), 2300);
 }
 
-async function loadData(){
+async function loadData(refreshUniform = true){
   const [classes, categories, rating] = await Promise.all([
     api("/api/classes"),
     api("/api/categories"),
@@ -41,6 +42,35 @@ async function loadData(){
   state.classes = classes;
   state.categories = categories;
   state.allRating = rating;
+
+  if(refreshUniform || !Object.keys(state.uniformByClass).length){
+    const summaries = await Promise.all(classes.map(async cls => {
+      try { return [cls.id, await api(`/api/classes/${cls.id}/uniform-checks`)]; }
+      catch(error) { return [cls.id, null]; }
+    }));
+    state.uniformByClass = Object.fromEntries(summaries);
+  }
+
+  hydrateMatrixRatings();
+}
+
+function hydrateMatrixRatings(){
+  state.allRating.forEach(row => {
+    const summary = state.uniformByClass[row.class_id];
+    const responsibility = (row.categories || []).find(cat => cat.matrix_number === 8);
+    if(responsibility && summary){
+      responsibility.uniform_summary = summary;
+      const uniformCriterion = (responsibility.subcategories || []).find(sub => sub.code === "КР-08.01");
+      if(uniformCriterion){
+        responsibility.points = Math.round((Number(responsibility.points || 0) - Number(uniformCriterion.points || 0) + Number(summary.average_points || 0)) * 100) / 100;
+        uniformCriterion.points = Number(summary.average_points || 0);
+        uniformCriterion.uniform_summary = summary;
+      }
+    }
+    const possible = (row.categories || []).reduce((sum, cat) => sum + Number(cat.max_points || 0), 0);
+    const earned = (row.categories || []).reduce((sum, cat) => sum + Number(cat.points || 0), 0);
+    row.total = possible ? Math.round(earned / possible * 10000) / 100 : 0;
+  });
 }
 
 function rows(){
@@ -235,6 +265,19 @@ async function openClass(classId){
   const details = await api(`/api/classes/${classId}/details`);
   const row = details.class;
   const uniform = details.uniform || {checks:[], checks_count:0, average_points:0};
+  const responsibility = (row.categories || []).find(cat => cat.matrix_number === 8);
+  if(responsibility){
+    responsibility.uniform_summary = uniform;
+    const uniformCriterion = (responsibility.subcategories || []).find(sub => sub.code === "КР-08.01");
+    if(uniformCriterion){
+      responsibility.points = Math.round((Number(responsibility.points || 0) - Number(uniformCriterion.points || 0) + Number(uniform.average_points || 0)) * 100) / 100;
+      uniformCriterion.points = Number(uniform.average_points || 0);
+      uniformCriterion.uniform_summary = uniform;
+    }
+  }
+  const possible = (row.categories || []).reduce((sum, cat) => sum + Number(cat.max_points || 0), 0);
+  const earned = (row.categories || []).reduce((sum, cat) => sum + Number(cat.points || 0), 0);
+  row.total = possible ? Math.round(earned / possible * 10000) / 100 : 0;
 
   document.getElementById("modalTitle").textContent = `${row.class_name} класс`;
   document.getElementById("modalScore").textContent = round(row.total);
@@ -464,7 +507,7 @@ loadData().then(()=>{
   render();
   resetIdleTimer();
   setInterval(async()=>{
-    await loadData();
+    await loadData(false);
     render();
   },30000);
 }).catch(error=>{
