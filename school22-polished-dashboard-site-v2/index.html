@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=20260809-2" />
 </head>
 <body>
   <div class="app">
@@ -38,9 +38,9 @@
         </div>
         <div class="header-actions">
           <select id="groupSelect">
-            <option value="all">Все классы · 1–11</option>
+            <option value="all" selected>Все классы · 1–11</option>
             <option value="1">Начальная школа · 1–4</option>
-            <option value="2" selected>Средняя школа · 5–8</option>
+            <option value="2">Средняя школа · 5–8</option>
             <option value="3">Старшая школа · 9–11</option>
           </select>
           <button id="refreshBtn">Обновить</button>
@@ -50,6 +50,12 @@
           </button>
         </div>
       </header>
+
+      <div class="data-status loading" id="dataStatus" role="status" aria-live="polite">
+        <span class="data-status-dot" aria-hidden="true"></span>
+        <p id="dataStatusText">Загружаем актуальный рейтинг…</p>
+        <button class="hidden" id="retryDataBtn">Повторить</button>
+      </div>
 
       <section class="page active" id="overview">
         <div class="stats-grid">
@@ -279,6 +285,6 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="script.js"></script>
+  <script src="script.js?v=20260809-2"></script>
 </body>
 </html>

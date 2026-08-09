@@ -1,7 +1,7 @@
-const API_BASE = "https://school22-rating-api.onrender.com";
+const API_BASE = "";
 
 let state = {
-  groupId: 2,
+  groupId: "all",
   classes: [],
   categories: [],
   allRating: [],
@@ -22,9 +22,18 @@ let state = {
 };
 
 async function api(path){
-  const response = await fetch(API_BASE + path);
-  if(!response.ok) throw new Error(path);
-  return response.json();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 35000);
+  try{
+    const response = await fetch(API_BASE + path, {
+      signal: controller.signal,
+      cache: "no-store"
+    });
+    if(!response.ok) throw new Error(`${path}: ${response.status}`);
+    return response.json();
+  }finally{
+    clearTimeout(timeout);
+  }
 }
 
 function toast(message){
@@ -32,6 +41,30 @@ function toast(message){
   el.textContent = message;
   el.classList.add("show");
   setTimeout(()=>el.classList.remove("show"), 2300);
+}
+
+function setDataStatus(type, message){
+  const status = document.getElementById("dataStatus");
+  status.className = `data-status ${type}`;
+  document.getElementById("dataStatusText").textContent = message;
+  document.getElementById("retryDataBtn").classList.toggle("hidden", type !== "error");
+}
+
+async function loadAndRender({ announce = true, successToast = false, refreshUniform = true } = {}){
+  if(announce) setDataStatus("loading", "Загружаем актуальный рейтинг…");
+  try{
+    await loadData(refreshUniform);
+    render();
+    const active = state.allRating.filter(row => Number(row.total || 0) > 0).length;
+    setDataStatus("success", `Данные загружены · результаты внесены у ${active} из ${state.allRating.length} классов`);
+    if(successToast) toast("Обновлено");
+    resetIdleTimer();
+    return true;
+  }catch(error){
+    console.error(error);
+    setDataStatus("error", "Не удалось загрузить рейтинг. Нажмите «Повторить» — нули ниже не являются актуальными данными.");
+    return false;
+  }
 }
 
 async function loadData(refreshUniform = true){
@@ -629,12 +662,8 @@ document.getElementById("groupSelect").addEventListener("change", e => {
   resetIdleTimer();
 });
 
-document.getElementById("refreshBtn").addEventListener("click", async()=>{
-  await loadData();
-  render();
-  toast("Обновлено");
-  resetIdleTimer();
-});
+document.getElementById("refreshBtn").addEventListener("click",()=>loadAndRender({ successToast:true }));
+document.getElementById("retryDataBtn").addEventListener("click",()=>loadAndRender({ successToast:true }));
 document.getElementById("fullscreenBtn").addEventListener("click", toggleFullscreen);
 document.addEventListener("fullscreenchange", syncFullscreenButton);
 document.addEventListener("webkitfullscreenchange", syncFullscreenButton);
@@ -653,14 +682,5 @@ document.getElementById("classModal").addEventListener("click", e=>{
   }
 });
 
-loadData().then(()=>{
-  render();
-  resetIdleTimer();
-  setInterval(async()=>{
-    await loadData(false);
-    render();
-  },30000);
-}).catch(error=>{
-  console.error(error);
-  toast("Ошибка загрузки данных");
-});
+loadAndRender();
+setInterval(()=>loadAndRender({ announce:false, refreshUniform:false }),30000);
