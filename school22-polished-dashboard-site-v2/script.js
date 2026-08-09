@@ -50,13 +50,30 @@ function setDataStatus(type, message){
   document.getElementById("retryDataBtn").classList.toggle("hidden", type !== "error");
 }
 
+function hasDemoData(){
+  return state.allRating.some(row =>
+    (row.categories || []).some(category =>
+      (category.subcategories || []).some(subcategory =>
+        (subcategory.events || []).some(event =>
+          String(event.comment || "").includes("[DEMO-VIDEO-20260809]") ||
+          String(event.title || "").startsWith("[ДЕМО]")
+        )
+      )
+    )
+  );
+}
+
 async function loadAndRender({ announce = true, successToast = false, refreshUniform = true } = {}){
   if(announce) setDataStatus("loading", "Загружаем актуальный рейтинг…");
   try{
     await loadData(refreshUniform);
     render();
     const active = state.allRating.filter(row => Number(row.total || 0) > 0).length;
-    setDataStatus("success", `Данные загружены · результаты внесены у ${active} из ${state.allRating.length} классов`);
+    if(hasDemoData()){
+      setDataStatus("demo", `Демонстрационный режим · заполнено ${active} из ${state.allRating.length} классов`);
+    }else{
+      setDataStatus("success", `Данные загружены · результаты внесены у ${active} из ${state.allRating.length} классов`);
+    }
     if(successToast) toast("Обновлено");
     resetIdleTimer();
     return true;
