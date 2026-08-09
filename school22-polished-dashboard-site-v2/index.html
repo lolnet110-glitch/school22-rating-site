@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <link rel="stylesheet" href="style.css?v=20260809-3" />
+  <link rel="stylesheet" href="style.css?v=20260809-4" />
 </head>
 <body>
   <div class="app">
@@ -23,6 +23,7 @@
 
       <nav class="nav">
         <button class="nav-link active" data-page="overview">Обзор</button>
+        <button class="nav-link" data-page="directions">Направления</button>
         <button class="nav-link" data-page="classes">Классы</button>
         <button class="nav-link" data-page="analytics">Аналитика</button>
         <button class="nav-link" data-page="uniform">Школьная форма</button>
@@ -132,6 +133,52 @@
             <div id="directionMini" class="direction-mini"></div>
           </section>
         </div>
+      </section>
+
+      <section class="page" id="directions">
+        <div class="direction-page-intro">
+          <div>
+            <p class="label">Самостоятельные показатели</p>
+            <h3>Направления рейтинга</h3>
+            <p>Выберите направление, чтобы увидеть его рейтинг, критерии и результаты отдельно от общего зачёта.</p>
+          </div>
+          <strong>10</strong>
+        </div>
+
+        <div id="directionCatalog" class="direction-catalog"></div>
+
+        <section class="direction-dashboard" id="directionDashboard">
+          <div class="direction-dashboard-head">
+            <div>
+              <p class="label" id="directionDetailLabel">Направление</p>
+              <h3 id="directionDetailTitle">—</h3>
+              <p id="directionDetailDescription">Результаты по выбранному направлению</p>
+            </div>
+            <div class="direction-score-badge"><span>Средний балл</span><strong id="directionDetailAverage">0</strong></div>
+          </div>
+
+          <div class="direction-metrics">
+            <article><span>Лидер</span><strong id="directionDetailLeader">—</strong><p id="directionDetailLeaderScore">0 баллов</p></article>
+            <article><span>Классов с результатами</span><strong id="directionDetailCoverage">0/0</strong><p>Есть хотя бы один показатель</p></article>
+            <article><span>Критериев</span><strong id="directionDetailCriteriaCount">0</strong><p>В выбранном направлении</p></article>
+          </div>
+
+          <div class="direction-detail-grid">
+            <section class="panel direction-chart-panel">
+              <div class="panel-head"><div><h3>Рейтинг классов</h3><p>Баллы только выбранного направления</p></div></div>
+              <div class="direction-detail-chart"><canvas id="directionDetailChart"></canvas></div>
+            </section>
+            <section class="panel direction-ranking-panel">
+              <div class="panel-head"><div><h3>Места</h3><p>Нажмите на класс для подробностей</p></div></div>
+              <div id="directionRanking" class="direction-ranking"></div>
+            </section>
+          </div>
+
+          <section class="panel direction-criteria-panel">
+            <div class="panel-head"><div><h3>Показатели и формулы</h3><p>Каждый критерий отображается как самостоятельный показатель</p></div></div>
+            <div id="directionCriteria" class="direction-criteria"></div>
+          </section>
+        </section>
       </section>
 
       <section class="page" id="analytics">
@@ -285,6 +332,6 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="script.js?v=20260809-3"></script>
+  <script src="script.js?v=20260809-4"></script>
 </body>
 </html>
