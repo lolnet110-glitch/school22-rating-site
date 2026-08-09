@@ -32,6 +32,7 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;background:radial-gradien
 .header-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 button,select{border:1px solid var(--line);background:#fff;color:var(--text);border-radius:13px;padding:12px 15px;font:inherit;font-weight:800;cursor:pointer;box-shadow:0 10px 26px rgba(17,24,47,.06)}
 #refreshBtn{background:linear-gradient(135deg,var(--purple),var(--purple2));color:#fff;border:0}
+#fullscreenBtn{display:flex;align-items:center;gap:8px;background:#11182f;color:#fff;border:0}#fullscreenBtn>span:first-child{font-size:20px;line-height:1}:fullscreen{background:var(--bg)}:fullscreen .app{min-height:100vh}
 .page{display:none;min-height:calc(100vh - 112px);padding-bottom:40px}
 .page.active{display:block}
 .stats-grid{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:14px;margin-bottom:14px}
@@ -160,4 +161,5 @@ tr{cursor:pointer}
   .main{padding:14px}.header{align-items:flex-start;flex-direction:column}.header h2{font-size:30px}.header-actions{width:100%}.header-actions select{flex:1;min-width:0}
   .stats-grid,.insights-grid,.uniform-board{grid-template-columns:1fr}.stat-card,.insight-card{min-height:112px}.analytics-chart-panel{min-height:420px}.analytics-chart-wrap{height:340px}.direction-leaders{grid-template-columns:1fr}
   .screen-card{padding:22px}.screen-card h3{font-size:42px}.screen-metric{grid-template-columns:40px 1fr auto;padding:14px;font-size:16px}.screen-metric>span{width:38px;height:38px}.screen-metric strong{font-size:24px}
+  #fullscreenBtnText{display:none}#fullscreenBtn{padding-inline:14px}
 }

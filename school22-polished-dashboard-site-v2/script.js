@@ -587,6 +587,33 @@ function resetIdleTimer(){
   state.idleTimeout = setTimeout(startIdleMode, 10000);
 }
 
+function isFullscreen(){
+  return Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+}
+
+function syncFullscreenButton(){
+  const active = isFullscreen();
+  const button = document.getElementById("fullscreenBtn");
+  document.getElementById("fullscreenBtnText").textContent = active ? "Выйти" : "На весь экран";
+  button.setAttribute("aria-pressed", String(active));
+  button.setAttribute("aria-label", active ? "Выйти из полноэкранного режима" : "Открыть рейтинг на весь экран");
+}
+
+async function toggleFullscreen(){
+  try{
+    if(!isFullscreen()){
+      const open = document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen;
+      if(!open) return toast("Полноэкранный режим не поддерживается этим браузером");
+      await open.call(document.documentElement);
+    }else{
+      const close = document.exitFullscreen || document.webkitExitFullscreen;
+      if(close) await close.call(document);
+    }
+  }catch(error){
+    toast("Не удалось открыть полноэкранный режим");
+  }
+}
+
 ["mousemove","mousedown","keydown","touchstart","scroll"].forEach(eventName=>{
   window.addEventListener(eventName,()=>{
     if(state.idleEnabled) stopIdleMode();
@@ -608,6 +635,9 @@ document.getElementById("refreshBtn").addEventListener("click", async()=>{
   toast("Обновлено");
   resetIdleTimer();
 });
+document.getElementById("fullscreenBtn").addEventListener("click", toggleFullscreen);
+document.addEventListener("fullscreenchange", syncFullscreenButton);
+document.addEventListener("webkitfullscreenchange", syncFullscreenButton);
 
 document.getElementById("exitIdle").addEventListener("click",()=>stopIdleMode());
 
