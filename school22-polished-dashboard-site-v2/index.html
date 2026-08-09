@@ -24,8 +24,8 @@
       <nav class="nav">
         <button class="nav-link active" data-page="overview">Обзор</button>
         <button class="nav-link" data-page="classes">Классы</button>
+        <button class="nav-link" data-page="analytics">Аналитика</button>
         <button class="nav-link" data-page="uniform">Школьная форма</button>
-        <button class="nav-link" data-page="categories">Категории</button>
         <button class="nav-link" data-page="screen">Экранный режим</button>
       </nav>
     </aside>
@@ -55,19 +55,29 @@
             <p>Класс с максимальным итоговым баллом</p>
           </article>
           <article class="stat-card">
-            <span>Классов</span>
-            <strong id="classesCount">0</strong>
-            <p>В выбранном блоке</p>
-          </article>
-          <article class="stat-card">
             <span>Средний балл</span>
             <strong id="avgScore">0</strong>
             <p>По всем классам блока</p>
           </article>
           <article class="stat-card">
+            <span>Классов</span>
+            <strong id="classesCount">0</strong>
+            <p>В выбранном блоке</p>
+          </article>
+          <article class="stat-card">
             <span>Учеников</span>
             <strong id="studentsTotal">0</strong>
             <p>Всего в выбранных классах</p>
+          </article>
+          <article class="stat-card">
+            <span>Разрыв рейтинга</span>
+            <strong id="scoreSpread">0</strong>
+            <p>Между первым и последним местом</p>
+          </article>
+          <article class="stat-card">
+            <span>Проверена форма</span>
+            <strong id="uniformCoverage">0/0</strong>
+            <p>Классов в текущем месяце</p>
           </article>
         </div>
 
@@ -102,16 +112,68 @@
             <div id="uniformMini" class="mini-list"></div>
           </section>
 
-          <section class="panel categories-panel">
+          <section class="panel directions-panel">
             <div class="panel-head">
               <div>
-                <h3>Категории лидера</h3>
-                <p>Распределение баллов</p>
+                <h3>Сильные направления</h3>
+                <p>Средний результат выбранного блока</p>
               </div>
             </div>
-            <div id="leaderCategories" class="category-mini"></div>
+            <div id="directionMini" class="direction-mini"></div>
           </section>
         </div>
+      </section>
+
+      <section class="page" id="analytics">
+        <div class="insights-grid">
+          <article class="insight-card positive">
+            <span>Сильное направление</span>
+            <strong id="bestDirection">—</strong>
+            <p id="bestDirectionValue">Пока нет данных</p>
+          </article>
+          <article class="insight-card reserve">
+            <span>Резерв роста</span>
+            <strong id="weakDirection">—</strong>
+            <p id="weakDirectionValue">Пока нет данных</p>
+          </article>
+          <article class="insight-card">
+            <span>Классов с баллами</span>
+            <strong id="activeClasses">0</strong>
+            <p>Есть хотя бы один результат</p>
+          </article>
+        </div>
+
+        <div class="analytics-grid">
+          <section class="panel analytics-chart-panel">
+            <div class="panel-head">
+              <div>
+                <h3>Средние баллы по направлениям</h3>
+                <p>Показывает сильные стороны и точки роста</p>
+              </div>
+            </div>
+            <div class="analytics-chart-wrap"><canvas id="directionChart"></canvas></div>
+          </section>
+
+          <section class="panel analytics-chart-panel">
+            <div class="panel-head">
+              <div>
+                <h3>Сравнение школьных групп</h3>
+                <p>Средний итоговый балл по параллелям</p>
+              </div>
+            </div>
+            <div class="analytics-chart-wrap"><canvas id="groupChart"></canvas></div>
+          </section>
+        </div>
+
+        <section class="panel leaders-panel">
+          <div class="panel-head">
+            <div>
+              <h3>Лидеры по направлениям</h3>
+              <p>Лучший класс в каждом из десяти направлений матрицы</p>
+            </div>
+          </div>
+          <div id="directionLeaders" class="direction-leaders"></div>
+        </section>
       </section>
 
       <section class="page" id="classes">
@@ -140,18 +202,6 @@
             </div>
           </div>
           <div id="uniformBoard" class="uniform-board"></div>
-        </section>
-      </section>
-
-      <section class="page" id="categories">
-        <section class="panel full-panel">
-          <div class="panel-head">
-            <div>
-              <h3>Категории и подкатегории</h3>
-              <p>Структура рейтинга подгружается из API</p>
-            </div>
-          </div>
-          <div id="categoryFull" class="category-full"></div>
         </section>
       </section>
 

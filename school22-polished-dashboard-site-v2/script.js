@@ -8,6 +8,8 @@ let state = {
   uniformByClass: {},
   currentRows: [],
   ratingChart: null,
+  directionChart: null,
+  groupChart: null,
   modalChart: null,
   screenTimer: null,
   screenIndex: 0,
@@ -71,6 +73,7 @@ function hydrateMatrixRatings(){
     const earned = (row.categories || []).reduce((sum, cat) => sum + Number(cat.points || 0), 0);
     row.total = possible ? Math.round(earned / possible * 10000) / 100 : 0;
   });
+  state.allRating.sort((a,b) => Number(b.total || 0) - Number(a.total || 0));
 }
 
 function rows(){
@@ -100,6 +103,37 @@ function uniformCategory(row){
   return (row.categories || []).find(cat => cat.uniform_summary);
 }
 
+function directionStats(data){
+  return [...state.categories]
+    .sort((a,b) => Number(a.sort_order || 0) - Number(b.sort_order || 0))
+    .map(base => {
+      const values = data.map(row => {
+        const category = (row.categories || []).find(cat =>
+          (base.matrix_number && cat.matrix_number === base.matrix_number) || cat.id === base.id
+        );
+        return { row, points: Number(category?.points || 0) };
+      });
+      const leader = [...values].sort((a,b) => b.points - a.points)[0];
+      const average = values.length ? values.reduce((sum,item) => sum + item.points, 0) / values.length : 0;
+      return {
+        id: base.id,
+        number: base.matrix_number || base.sort_order,
+        name: base.name,
+        average: round(average),
+        leaderName: leader?.row?.class_name || "—",
+        leaderPoints: round(leader?.points || 0)
+      };
+    });
+}
+
+function shortDirectionName(name){
+  return String(name || "")
+    .replace(/^Самый\s+/i, "")
+    .replace(/^Самая\s+/i, "")
+    .replace(/^Самое\s+/i, "")
+    .replace(/\s+класс$/i, "");
+}
+
 function classRowHTML(row, index, compact = false){
   const total = round(row.total);
   const uniform = uniformCategory(row);
@@ -121,19 +155,24 @@ function render(){
   const data = state.currentRows;
   const avg = data.length ? round(data.reduce((s,r)=>s + Number(r.total || 0),0) / data.length) : 0;
   const students = data.reduce((s,r)=>s + Number(r.students_count || 0),0);
+  const totals = data.map(row => Number(row.total || 0));
+  const spread = totals.length > 1 ? round(Math.max(...totals) - Math.min(...totals)) : 0;
+  const checkedUniform = data.filter(row => uniformCategory(row)?.uniform_summary?.is_checked_current_month).length;
 
   document.getElementById("pageTitle").textContent = groupName();
   document.getElementById("leaderClass").textContent = data[0]?.class_name || "—";
   document.getElementById("classesCount").textContent = data.length;
   document.getElementById("avgScore").textContent = avg;
   document.getElementById("studentsTotal").textContent = students;
+  document.getElementById("scoreSpread").textContent = spread;
+  document.getElementById("uniformCoverage").textContent = `${checkedUniform}/${data.length}`;
 
   document.getElementById("classCards").innerHTML = data.map((row,index)=>classRowHTML(row,index)).join("");
   renderChart(data);
-  renderLeaderCategories(data[0]);
+  renderDirectionMini(data);
+  renderAnalytics(data);
   renderTable(data);
   renderUniform(data);
-  renderCategories();
   renderScreen();
 }
 
@@ -159,25 +198,115 @@ function renderChart(data){
       plugins: { legend: { display:false } },
       scales: {
         x: { grid: { display:false }, ticks: { font: { weight:"800" } } },
-        y: { beginAtZero:true, grid:{ color:"rgba(17,24,47,.08)" }, ticks:{ font:{ weight:"700" } } }
+        y: { beginAtZero:true, suggestedMax:100, grid:{ color:"rgba(17,24,47,.08)" }, ticks:{ font:{ weight:"700" } } }
       }
     }
   });
 }
 
-function renderLeaderCategories(row){
-  const box = document.getElementById("leaderCategories");
-  if(!row){
-    box.innerHTML = "";
-    return;
-  }
-
-  box.innerHTML = (row.categories || []).map(cat => `
-    <div class="category-pill">
-      <b>${cat.name}<span>${round(cat.points)}</span></b>
-      <small>до ${cat.max_points} баллов</small>
+function renderDirectionMini(data){
+  const top = directionStats(data).sort((a,b) => b.average - a.average).slice(0,4);
+  document.getElementById("directionMini").innerHTML = top.map((item,index) => `
+    <div class="direction-mini-row">
+      <div class="direction-mini-place">${index + 1}</div>
+      <div>
+        <b>${shortDirectionName(item.name)}</b>
+        <small>Лидер: ${item.leaderName} · ${item.leaderPoints} б.</small>
+      </div>
+      <strong>${item.average}</strong>
     </div>
+  `).join("") || `<p class="empty">Показателей пока нет</p>`;
+}
+
+function renderAnalytics(data){
+  const directions = directionStats(data);
+  const ranked = [...directions].sort((a,b) => b.average - a.average);
+  const best = ranked[0];
+  const weak = ranked[ranked.length - 1];
+  const active = data.filter(row => Number(row.total || 0) > 0).length;
+
+  document.getElementById("bestDirection").textContent = best ? shortDirectionName(best.name) : "—";
+  document.getElementById("bestDirectionValue").textContent = best ? `Средний балл: ${best.average} из 100` : "Пока нет данных";
+  document.getElementById("weakDirection").textContent = weak ? shortDirectionName(weak.name) : "—";
+  document.getElementById("weakDirectionValue").textContent = weak ? `Средний балл: ${weak.average} из 100` : "Пока нет данных";
+  document.getElementById("activeClasses").textContent = `${active}/${data.length}`;
+
+  document.getElementById("directionLeaders").innerHTML = directions.map(item => `
+    <article class="direction-leader-card">
+      <span>${item.number}</span>
+      <div>
+        <h4>${shortDirectionName(item.name)}</h4>
+        <p>${item.leaderName} класс</p>
+      </div>
+      <strong>${item.leaderPoints}</strong>
+    </article>
   `).join("");
+
+  if(!document.getElementById("analytics").classList.contains("active")) return;
+  renderDirectionChart(directions);
+  renderGroupChart();
+}
+
+function renderDirectionChart(directions){
+  const canvas = document.getElementById("directionChart");
+  if(state.directionChart) state.directionChart.destroy();
+  state.directionChart = new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels: directions.map(item => shortDirectionName(item.name)),
+      datasets: [{
+        data: directions.map(item => item.average),
+        borderRadius: 9,
+        backgroundColor: directions.map((item,index) => index % 2 ? "rgba(124,92,255,.76)" : "rgba(91,53,245,.9)")
+      }]
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display:false } },
+      scales: {
+        x: { beginAtZero:true, suggestedMax:100, grid:{ color:"rgba(17,24,47,.07)" } },
+        y: { grid:{ display:false }, ticks:{ font:{ weight:"800" } } }
+      }
+    }
+  });
+}
+
+function renderGroupChart(){
+  const groups = [
+    { id:1, name:"1–4 классы" },
+    { id:2, name:"5–8 классы" },
+    { id:3, name:"9–11 классы" }
+  ].map(group => {
+    const values = state.allRating.filter(row => row.group_id === group.id);
+    const average = values.length ? values.reduce((sum,row) => sum + Number(row.total || 0),0) / values.length : 0;
+    return { ...group, average:round(average) };
+  });
+
+  const canvas = document.getElementById("groupChart");
+  if(state.groupChart) state.groupChart.destroy();
+  state.groupChart = new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels: groups.map(group => group.name),
+      datasets: [{
+        data: groups.map(group => group.average),
+        borderRadius: 14,
+        maxBarThickness: 76,
+        backgroundColor: ["#7c5cff", "#5b35f5", "#11182f"]
+      }]
+    },
+    options: {
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{ legend:{ display:false } },
+      scales:{
+        x:{ grid:{ display:false }, ticks:{ font:{ weight:"800" } } },
+        y:{ beginAtZero:true, suggestedMax:100, grid:{ color:"rgba(17,24,47,.07)" } }
+      }
+    }
+  });
 }
 
 function categoryNames(data){
@@ -235,29 +364,6 @@ function renderUniform(data){
       </article>
     `;
   }).join("");
-}
-
-function renderCategories(){
-  document.getElementById("categoryFull").innerHTML = state.categories.map(cat => `
-    <article class="category-card">
-      <h4>${cat.matrix_number ? `${cat.matrix_number}. ` : ""}${cat.name}</h4>
-      <strong>${cat.max_points}</strong>
-      <p>Максимум баллов · ${(cat.subcategories || []).length} критериев</p>
-      <div class="sub-list">
-        ${(cat.subcategories || []).map(sub => `
-          <div class="sub-item">
-            <div>
-              <span>${sub.code ? `${sub.code} · ` : ""}${sub.name}</span>
-              <small>${sub.measurement || ""}</small>
-              <em>${sub.formula_code || "Ручные баллы"}${sub.target != null ? ` · цель ${sub.target} ${sub.unit || ""}` : ""}</em>
-              ${sub.scoring_rule ? `<small class="scoring-rule">${sub.scoring_rule}</small>` : ""}
-            </div>
-            <b>${sub.max_points}</b>
-          </div>
-        `).join("") || `<div class="sub-item muted">Без подкатегорий</div>`}
-      </div>
-    </article>
-  `).join("");
 }
 
 async function openClass(classId){
@@ -353,8 +459,22 @@ function switchPage(page){
 
   if(page === "screen") startScreenMode();
   else stopScreenMode();
+  if(page === "analytics") requestAnimationFrame(() => renderAnalytics(state.currentRows));
 
   resetIdleTimer();
+}
+
+function directionScreenHTML(data){
+  return directionStats(data)
+    .sort((a,b) => b.average - a.average)
+    .slice(0,6)
+    .map((item,index) => `
+      <div class="screen-metric">
+        <span>${index + 1}</span>
+        <b>${shortDirectionName(item.name)}</b>
+        <strong>${item.average}</strong>
+      </div>
+    `).join("");
 }
 
 function renderScreen(){
@@ -362,7 +482,7 @@ function renderScreen(){
   const slides = [
     {label: groupName(), title: "Рейтинг классов", html: data.slice(0,6).map((r,i)=>classRowHTML(r,i,true)).join("")},
     {label: "Школьная форма", title: "Средний балл формы", html: [...data].sort((a,b)=>round(uniformCategory(b)?.points)-round(uniformCategory(a)?.points)).slice(0,6).map((r,i)=>classRowHTML({...r,total:round(uniformCategory(r)?.points)},i,true)).join("")},
-    {label: "Категории", title: "Структура рейтинга", html: state.categories.map(cat => `<div class="screen-category"><b>${cat.name}</b><span>${cat.max_points} баллов</span></div>`).join("")}
+    {label: "Аналитика", title: "Сильные направления", html: directionScreenHTML(data)}
   ];
 
   const slide = slides[state.screenIndex % slides.length];
@@ -414,9 +534,9 @@ function idleSlides(){
       html: data[0] ? classRowHTML(data[0],0,true) : ""
     },
     {
-      label: "Категории",
-      title: "Структура рейтинга",
-      html: state.categories.map(cat => `<div class="screen-category"><b>${cat.name}</b><span>${cat.max_points} баллов</span></div>`).join("")
+      label: "Аналитика",
+      title: "Сильные направления",
+      html: directionScreenHTML(data)
     }
   ];
 }
