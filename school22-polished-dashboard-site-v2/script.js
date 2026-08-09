@@ -7,8 +7,10 @@ let state = {
   allRating: [],
   uniformByClass: {},
   currentRows: [],
+  selectedDirectionId: null,
   ratingChart: null,
   directionChart: null,
+  directionDetailChart: null,
   groupChart: null,
   modalChart: null,
   screenTimer: null,
@@ -184,6 +186,38 @@ function shortDirectionName(name){
     .replace(/\s+класс$/i, "");
 }
 
+function sortedDirections(){
+  return [...state.categories].sort((a,b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
+}
+
+function selectedDirection(){
+  const directions = sortedDirections();
+  if(!state.selectedDirectionId && directions.length) state.selectedDirectionId = directions[0].id;
+  return directions.find(item => item.id === state.selectedDirectionId) || directions[0] || null;
+}
+
+function directionForRow(row, base){
+  if(!base) return null;
+  return (row.categories || []).find(category =>
+    category.id === base.id ||
+    (base.matrix_number && category.matrix_number === base.matrix_number)
+  );
+}
+
+function activePage(){
+  return document.querySelector(".page.active")?.id || "overview";
+}
+
+function updatePageTitle(){
+  const titles = {
+    directions: "Направления рейтинга",
+    analytics: "Аналитика",
+    uniform: "Школьная форма",
+    screen: "Экранный режим"
+  };
+  document.getElementById("pageTitle").textContent = titles[activePage()] || groupName();
+}
+
 function classRowHTML(row, index, compact = false){
   const total = round(row.total);
   const uniform = uniformCategory(row);
@@ -209,7 +243,7 @@ function render(){
   const spread = totals.length > 1 ? round(Math.max(...totals) - Math.min(...totals)) : 0;
   const checkedUniform = data.filter(row => uniformCategory(row)?.uniform_summary?.is_checked_current_month).length;
 
-  document.getElementById("pageTitle").textContent = groupName();
+  updatePageTitle();
   document.getElementById("leaderClass").textContent = data[0]?.class_name || "—";
   document.getElementById("classesCount").textContent = data.length;
   document.getElementById("avgScore").textContent = avg;
@@ -220,6 +254,7 @@ function render(){
   document.getElementById("classCards").innerHTML = data.map((row,index)=>classRowHTML(row,index)).join("");
   renderChart(data);
   renderDirectionMini(data);
+  renderDirections(data);
   renderAnalytics(data);
   renderTable(data);
   renderUniform(data);
@@ -266,6 +301,107 @@ function renderDirectionMini(data){
       <strong>${item.average}</strong>
     </div>
   `).join("") || `<p class="empty">Показателей пока нет</p>`;
+}
+
+function selectDirection(directionId){
+  state.selectedDirectionId = Number(directionId);
+  renderDirections(state.currentRows);
+  document.getElementById("directionDashboard")?.scrollIntoView({ behavior:"smooth", block:"start" });
+  resetIdleTimer();
+}
+
+function renderDirections(data){
+  const directions = sortedDirections();
+  const base = selectedDirection();
+  if(!base) return;
+
+  document.getElementById("directionCatalog").innerHTML = directions.map((direction,index) => {
+    const values = data.map(row => Number(directionForRow(row,direction)?.points || 0));
+    const average = values.length ? round(values.reduce((sum,value) => sum + value,0) / values.length) : 0;
+    const active = values.filter(value => value > 0).length;
+    return `
+      <button class="direction-catalog-card ${direction.id === base.id ? "active" : ""}" onclick="selectDirection(${direction.id})">
+        <span>${String(direction.matrix_number || direction.sort_order || index + 1).padStart(2,"0")}</span>
+        <div><h4>${direction.name}</h4><p>${(direction.subcategories || []).length} критериев · ${active}/${data.length} классов</p></div>
+        <strong>${average}</strong>
+      </button>
+    `;
+  }).join("");
+
+  const ranking = data.map(row => ({
+    row,
+    category:directionForRow(row,base),
+    points:Number(directionForRow(row,base)?.points || 0)
+  })).sort((a,b) => b.points - a.points || a.row.class_name.localeCompare(b.row.class_name,"ru"));
+  const average = ranking.length ? round(ranking.reduce((sum,item) => sum + item.points,0) / ranking.length) : 0;
+  const covered = ranking.filter(item => item.points > 0).length;
+  const leader = ranking[0];
+  const sampleCategory = ranking.find(item => item.category)?.category;
+  const criteria = sampleCategory?.subcategories || base.subcategories || [];
+
+  document.getElementById("directionDetailLabel").textContent = `Направление ${String(base.matrix_number || base.sort_order || 1).padStart(2,"0")}`;
+  document.getElementById("directionDetailTitle").textContent = base.name;
+  document.getElementById("directionDetailDescription").textContent = `${criteria.length} показателей · расчёты и формулы остаются без изменений`;
+  document.getElementById("directionDetailAverage").textContent = average;
+  document.getElementById("directionDetailLeader").textContent = leader?.row?.class_name || "—";
+  document.getElementById("directionDetailLeaderScore").textContent = `${round(leader?.points)} из ${base.max_points || 100} баллов`;
+  document.getElementById("directionDetailCoverage").textContent = `${covered}/${ranking.length}`;
+  document.getElementById("directionDetailCriteriaCount").textContent = criteria.length;
+
+  document.getElementById("directionRanking").innerHTML = ranking.map((item,index) => `
+    <button class="direction-rank-row" onclick="openClass(${item.row.class_id})">
+      <span class="rank ${rankClass(index)}">${index + 1}</span>
+      <div><b>${item.row.class_name} класс</b><small>${item.row.students_count || 0} учеников</small></div>
+      <strong>${round(item.points)}</strong>
+    </button>
+  `).join("");
+
+  document.getElementById("directionCriteria").innerHTML = criteria.map(criterion => {
+    const values = ranking.map(item => {
+      const sub = (item.category?.subcategories || []).find(candidate => candidate.id === criterion.id || candidate.code === criterion.code);
+      return Number(sub?.points || 0);
+    });
+    const criterionAverage = values.length ? round(values.reduce((sum,value) => sum + value,0) / values.length) : 0;
+    const criterionCoverage = values.filter(value => value > 0).length;
+    return `
+      <article class="direction-criterion-card">
+        <div class="criterion-code">${criterion.code || "Показатель"}</div>
+        <h4>${criterion.name}</h4>
+        <div class="criterion-metrics"><strong>${criterionAverage}</strong><span>средний балл</span><b>${criterionCoverage}/${ranking.length}</b><span>классов</span></div>
+        <p>${criterion.measurement || "Показатель направления"}</p>
+        <div class="criterion-formula-public"><b>${criterion.formula_code || "Ручной ввод"}</b><span>${criterion.scoring_rule || `До ${criterion.max_points || 10} баллов`}</span></div>
+      </article>
+    `;
+  }).join("") || `<p class="empty">Критерии пока не добавлены</p>`;
+
+  if(activePage() === "directions") requestAnimationFrame(() => renderDirectionDetailChart(ranking,base));
+}
+
+function renderDirectionDetailChart(ranking,base){
+  const canvas = document.getElementById("directionDetailChart");
+  if(!canvas) return;
+  if(state.directionDetailChart) state.directionDetailChart.destroy();
+  state.directionDetailChart = new Chart(canvas,{
+    type:"bar",
+    data:{
+      labels:ranking.map(item => item.row.class_name),
+      datasets:[{
+        data:ranking.map(item => round(item.points)),
+        backgroundColor:ranking.map((item,index) => index < 3 ? ["#f0a800","#9aa3b7","#df7b32"][index] : "rgba(91,53,245,.82)"),
+        borderRadius:10,
+        maxBarThickness:42
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{display:false},ticks:{font:{weight:"800"}}},
+        y:{beginAtZero:true,suggestedMax:Number(base.max_points || 100),grid:{color:"rgba(17,24,47,.08)"}}
+      }
+    }
+  });
 }
 
 function renderAnalytics(data){
@@ -510,6 +646,8 @@ function switchPage(page){
   if(page === "screen") startScreenMode();
   else stopScreenMode();
   if(page === "analytics") requestAnimationFrame(() => renderAnalytics(state.currentRows));
+  if(page === "directions") requestAnimationFrame(() => renderDirections(state.currentRows));
+  updatePageTitle();
 
   resetIdleTimer();
 }
