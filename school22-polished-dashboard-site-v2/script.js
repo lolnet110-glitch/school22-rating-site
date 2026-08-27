@@ -142,7 +142,12 @@ async function loadData(refreshUniform = true){
     const snapshot = window.SCHOOL22_DEMO_SNAPSHOT;
     if(!snapshot) throw error;
     classes = JSON.parse(JSON.stringify(snapshot.classes));
-    categories = JSON.parse(JSON.stringify(snapshot.categories));
+    categories = snapshot.categories.map(category => ({
+      ...category,
+      subcategories: snapshot.subcategories.filter(
+        subcategory => Number(subcategory.category_id) === Number(category.id)
+      )
+    }));
     rating = expandSnapshotRatings(snapshot);
     state.uniformByClass = JSON.parse(JSON.stringify(snapshot.uniform_by_class));
     state.usingSnapshot = true;
