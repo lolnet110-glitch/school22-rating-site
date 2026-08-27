@@ -20,7 +20,8 @@ let state = {
   idleTimeout: null,
   idleTimer: null,
   idleIndex: 0,
-  idleElapsed: 0
+  idleElapsed: 0,
+  usingSnapshot: false
 };
 
 async function api(path){
@@ -53,6 +54,7 @@ function setDataStatus(type, message){
 }
 
 function hasDemoData(){
+  if(state.usingSnapshot) return true;
   return state.allRating.some(row =>
     (row.categories || []).some(category =>
       (category.subcategories || []).some(subcategory =>
@@ -63,6 +65,44 @@ function hasDemoData(){
       )
     )
   );
+}
+
+function expandSnapshotRatings(snapshot){
+  const categoryById = new Map(snapshot.categories.map(item => [Number(item.id), item]));
+  const subcategoryById = new Map(snapshot.subcategories.map(item => [Number(item.id), item]));
+
+  return snapshot.ratings.map(row => ({
+    ...row,
+    categories: row.categories.map(categoryScore => {
+      const category = {...categoryById.get(Number(categoryScore.id))};
+      const subcategories = categoryScore.subcategories.map(subcategoryScore => {
+        const subcategory = {...subcategoryById.get(Number(subcategoryScore.id))};
+        const uniform = subcategory.code === "КР-08.01" ? snapshot.uniform_by_class[row.class_id] : null;
+        return {
+          ...subcategory,
+          points: subcategoryScore.points,
+          raw_points: subcategoryScore.points,
+          maxed: false,
+          events: [],
+          comment: null,
+          updated_at: null,
+          ...(uniform ? {uniform_summary: uniform} : {})
+        };
+      });
+      return {
+        ...category,
+        points: categoryScore.points,
+        raw_points: categoryScore.points,
+        maxed: false,
+        comment: null,
+        updated_at: null,
+        subcategories,
+        ...(subcategories.some(item => item.code === "КР-08.01")
+          ? {uniform_summary: snapshot.uniform_by_class[row.class_id]}
+          : {})
+      };
+    })
+  }));
 }
 
 async function loadAndRender({ announce = true, successToast = false, refreshUniform = true } = {}){
@@ -87,17 +127,32 @@ async function loadAndRender({ announce = true, successToast = false, refreshUni
 }
 
 async function loadData(refreshUniform = true){
-  const [classes, categories, rating] = await Promise.all([
-    api("/api/classes"),
-    api("/api/categories"),
-    api("/api/ratings/classes")
-  ]);
+  let classes;
+  let categories;
+  let rating;
+
+  try{
+    [classes, categories, rating] = await Promise.all([
+      api("/api/classes"),
+      api("/api/categories"),
+      api("/api/ratings/classes")
+    ]);
+    state.usingSnapshot = false;
+  }catch(error){
+    const snapshot = window.SCHOOL22_DEMO_SNAPSHOT;
+    if(!snapshot) throw error;
+    classes = JSON.parse(JSON.stringify(snapshot.classes));
+    categories = JSON.parse(JSON.stringify(snapshot.categories));
+    rating = expandSnapshotRatings(snapshot);
+    state.uniformByClass = JSON.parse(JSON.stringify(snapshot.uniform_by_class));
+    state.usingSnapshot = true;
+  }
 
   state.classes = classes;
   state.categories = categories;
   state.allRating = rating;
 
-  if(refreshUniform || !Object.keys(state.uniformByClass).length){
+  if(!state.usingSnapshot && (refreshUniform || !Object.keys(state.uniformByClass).length)){
     const summaries = await Promise.all(classes.map(async cls => {
       try { return [cls.id, await api(`/api/classes/${cls.id}/uniform-checks`)]; }
       catch(error) { return [cls.id, null]; }
@@ -554,7 +609,12 @@ function renderUniform(data){
 
 async function openClass(classId){
   stopIdleMode(false);
-  const details = await api(`/api/classes/${classId}/details`);
+  const details = state.usingSnapshot
+    ? {
+        class: JSON.parse(JSON.stringify(state.allRating.find(row => Number(row.class_id) === Number(classId)))),
+        uniform: JSON.parse(JSON.stringify(state.uniformByClass[classId] || {checks:[], checks_count:0, average_points:0}))
+      }
+    : await api(`/api/classes/${classId}/details`);
   const row = details.class;
   const uniform = details.uniform || {checks:[], checks_count:0, average_points:0};
   const responsibility = (row.categories || []).find(cat => cat.matrix_number === 8);
