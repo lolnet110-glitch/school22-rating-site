@@ -20,8 +20,7 @@ let state = {
   idleTimeout: null,
   idleTimer: null,
   idleIndex: 0,
-  idleElapsed: 0,
-  usingSnapshot: false
+  idleElapsed: 0
 };
 
 async function api(path){
@@ -53,69 +52,13 @@ function setDataStatus(type, message){
   document.getElementById("retryDataBtn").classList.toggle("hidden", type !== "error");
 }
 
-function hasDemoData(){
-  if(state.usingSnapshot) return true;
-  return state.allRating.some(row =>
-    (row.categories || []).some(category =>
-      (category.subcategories || []).some(subcategory =>
-        (subcategory.events || []).some(event =>
-          String(event.comment || "").includes("[DEMO-VIDEO-20260809]") ||
-          String(event.title || "").startsWith("[ДЕМО]")
-        )
-      )
-    )
-  );
-}
-
-function expandSnapshotRatings(snapshot){
-  const categoryById = new Map(snapshot.categories.map(item => [Number(item.id), item]));
-  const subcategoryById = new Map(snapshot.subcategories.map(item => [Number(item.id), item]));
-
-  return snapshot.ratings.map(row => ({
-    ...row,
-    categories: row.categories.map(categoryScore => {
-      const category = {...categoryById.get(Number(categoryScore.id))};
-      const subcategories = categoryScore.subcategories.map(subcategoryScore => {
-        const subcategory = {...subcategoryById.get(Number(subcategoryScore.id))};
-        const uniform = subcategory.code === "КР-08.01" ? snapshot.uniform_by_class[row.class_id] : null;
-        return {
-          ...subcategory,
-          points: subcategoryScore.points,
-          raw_points: subcategoryScore.points,
-          maxed: false,
-          events: [],
-          comment: null,
-          updated_at: null,
-          ...(uniform ? {uniform_summary: uniform} : {})
-        };
-      });
-      return {
-        ...category,
-        points: categoryScore.points,
-        raw_points: categoryScore.points,
-        maxed: false,
-        comment: null,
-        updated_at: null,
-        subcategories,
-        ...(subcategories.some(item => item.code === "КР-08.01")
-          ? {uniform_summary: snapshot.uniform_by_class[row.class_id]}
-          : {})
-      };
-    })
-  }));
-}
-
 async function loadAndRender({ announce = true, successToast = false, refreshUniform = true } = {}){
   if(announce) setDataStatus("loading", "Загружаем актуальный рейтинг…");
   try{
     await loadData(refreshUniform);
     render();
     const active = state.allRating.filter(row => Number(row.total || 0) > 0).length;
-    if(hasDemoData()){
-      setDataStatus("demo", `Демонстрационный режим · заполнено ${active} из ${state.allRating.length} классов`);
-    }else{
-      setDataStatus("success", `Данные загружены · результаты внесены у ${active} из ${state.allRating.length} классов`);
-    }
+    setDataStatus("success", `Данные загружены · результаты внесены у ${active} из ${state.allRating.length} классов`);
     if(successToast) toast("Обновлено");
     resetIdleTimer();
     return true;
@@ -127,37 +70,17 @@ async function loadAndRender({ announce = true, successToast = false, refreshUni
 }
 
 async function loadData(refreshUniform = true){
-  let classes;
-  let categories;
-  let rating;
-
-  try{
-    [classes, categories, rating] = await Promise.all([
-      api("/api/classes"),
-      api("/api/categories"),
-      api("/api/ratings/classes")
-    ]);
-    state.usingSnapshot = false;
-  }catch(error){
-    const snapshot = window.SCHOOL22_DEMO_SNAPSHOT;
-    if(!snapshot) throw error;
-    classes = JSON.parse(JSON.stringify(snapshot.classes));
-    categories = snapshot.categories.map(category => ({
-      ...category,
-      subcategories: snapshot.subcategories.filter(
-        subcategory => Number(subcategory.category_id) === Number(category.id)
-      )
-    }));
-    rating = expandSnapshotRatings(snapshot);
-    state.uniformByClass = JSON.parse(JSON.stringify(snapshot.uniform_by_class));
-    state.usingSnapshot = true;
-  }
+  const [classes, categories, rating] = await Promise.all([
+    api("/api/classes"),
+    api("/api/categories"),
+    api("/api/ratings/classes")
+  ]);
 
   state.classes = classes;
   state.categories = categories;
   state.allRating = rating;
 
-  if(!state.usingSnapshot && (refreshUniform || !Object.keys(state.uniformByClass).length)){
+  if(refreshUniform || !Object.keys(state.uniformByClass).length){
     const summaries = await Promise.all(classes.map(async cls => {
       try { return [cls.id, await api(`/api/classes/${cls.id}/uniform-checks`)]; }
       catch(error) { return [cls.id, null]; }
