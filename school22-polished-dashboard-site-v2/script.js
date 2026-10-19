@@ -80,13 +80,10 @@ async function loadData(refreshUniform = true){
   state.categories = categories;
   state.allRating = rating;
 
-  if(refreshUniform || !Object.keys(state.uniformByClass).length){
-    const summaries = await Promise.all(classes.map(async cls => {
-      try { return [cls.id, await api(`/api/classes/${cls.id}/uniform-checks`)]; }
-      catch(error) { return [cls.id, null]; }
-    }));
-    state.uniformByClass = Object.fromEntries(summaries);
-  }
+  state.uniformByClass = Object.fromEntries(rating.map(row => [
+    row.class_id,
+    (row.categories || []).find(category => category.uniform_summary)?.uniform_summary || null
+  ]));
 
   hydrateMatrixRatings();
 }
